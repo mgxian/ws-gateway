@@ -23,6 +23,15 @@ func (s *StubWSClientStore) Save(memberID int, ws *websocket.Conn) error {
 	return nil
 }
 
+type FakeAuthServer struct{}
+
+func (s *FakeAuthServer) Auth(memberID int, token string) bool {
+	if memberID == 12345 {
+		return false
+	}
+	return true
+}
+
 func newWSConnectTo(server *httptest.Server) (*websocket.Conn, *http.Response, error) {
 	wsURLPrefix := "ws" + strings.TrimPrefix(server.URL, "http")
 	wsURL := wsURLPrefix + "/push"
@@ -36,13 +45,15 @@ func TestWithRegister(t *testing.T) {
 		reply       string
 	}{
 		{"anonymous user connect", -1, "", `{code:200,message:"hello stranger"}`},
-		{"member connect", 123456, "654321", `{code:200,message:"hello 123456"}`},
+		{"valid member connect", 123456, "654321", `{code:200,message:"hello 123456"}`},
+		{"not valid member connect", 12345, "65432", `{code:401,message:"unauthorized"}`},
 	}
 
 	aStubWSClientStore := &StubWSClientStore{
 		wsClients: make([]*websocket.Conn, 0),
 	}
-	server := httptest.NewServer(NewGatewayServer(aStubWSClientStore))
+	authServer := &FakeAuthServer{}
+	server := httptest.NewServer(NewGatewayServer(aStubWSClientStore, authServer))
 	defer server.Close()
 
 	nextWantWSClientsCount := 1
@@ -75,7 +86,8 @@ func TestWithNoRegister(t *testing.T) {
 	aStubWSClientStore := &StubWSClientStore{
 		wsClients: make([]*websocket.Conn, 0),
 	}
-	server := httptest.NewServer(NewGatewayServer(aStubWSClientStore))
+	authServer := &FakeAuthServer{}
+	server := httptest.NewServer(NewGatewayServer(aStubWSClientStore, authServer))
 	defer server.Close()
 	ws, response, err := newWSConnectTo(server)
 	if err != nil {
@@ -97,9 +109,10 @@ func TestPushMessage(t *testing.T) {
 	aStubWSClientStore := &StubWSClientStore{
 		wsClients: make([]*websocket.Conn, 0),
 	}
-	server := NewGatewayServer(aStubWSClientStore)
+	authServer := &FakeAuthServer{}
+	server := NewGatewayServer(aStubWSClientStore, authServer)
 	response := httptest.NewRecorder()
-	msg := message{
+	msg := PushMessage{
 		MemberID: -1,
 		Text:     `{"hello":"world"}`,
 	}
