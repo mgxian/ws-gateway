@@ -101,6 +101,11 @@ func TestWithNoRegister(t *testing.T) {
 	assert.NoError(t, err)
 
 	ws.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
+	_, msg, err := ws.ReadMessage()
+	assert.NoError(t, err)
+	assert.Equal(t, `{code:400,message:"missing auth message"}`, string(msg))
+
+	ws.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
 	_, _, err = ws.ReadMessage()
 	assert.Error(t, err)
 }

@@ -55,9 +55,18 @@ func (g *gatewayServer) websocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	g.verifyConnection(ws)
+}
+
+func (g *gatewayServer) verifyConnection(ws *websocket.Conn) {
 	var auth AuthMessage
 	_, msg, err := ws.ReadMessage()
+	if err != nil {
+		return
+	}
+
 	if err := json.Unmarshal(msg, &auth); err != nil {
+		ws.WriteMessage(websocket.TextMessage, []byte(`{code:400,message:"missing auth message"}`))
 		return
 	}
 
