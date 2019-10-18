@@ -8,9 +8,19 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type app = string
+type memberID = int
+type remoteAddr = string
+type wsClient map[remoteAddr]*websocket.Conn
+type memberWSClients map[memberID]wsClient
+
 type AuthMessage struct {
 	MemberID int    `json:"member_id"`
 	Token    string `json:"token"`
+}
+
+type SubscribeMessage struct {
+	App string `json:"app"`
 }
 
 type PushMessage struct {
@@ -29,7 +39,9 @@ type gatewayServer struct {
 }
 
 type wsClientStore interface {
-	Save(int, *websocket.Conn) error
+	Save(app string, memberID int, ws *websocket.Conn) error
+	PublicWSClientsForApp(app string) []*websocket.Conn
+	PrivateWSClientsForMember(memberID int) []*websocket.Conn
 }
 
 func NewGatewayServer(store wsClientStore, authServer AuthServer) *gatewayServer {
@@ -50,37 +62,56 @@ func (g *gatewayServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (g *gatewayServer) websocket(w http.ResponseWriter, r *http.Request) {
 	ws, err := g.upgrader.Upgrade(w, r, nil)
-	defer ws.Close()
 	if err != nil {
 		return
 	}
+	defer ws.Close()
 
-	g.verifyConnection(ws)
+	memberID := g.verifyConnection(ws)
+	if memberID == -1 {
+		return
+	}
+
+	for {
+		_, msg, err := ws.ReadMessage()
+		if err != nil {
+			return
+		}
+
+		var sub SubscribeMessage
+		if err := json.Unmarshal(msg, &sub); err != nil {
+			ws.WriteMessage(websocket.TextMessage, []byte(`{code:400,message:"bad subscribe message"}`))
+			continue
+		}
+
+		subscribeSuccessMsg := fmt.Sprintf(`{code:200,message:"subscribe %s success"}`, sub.App)
+		ws.WriteMessage(websocket.TextMessage, []byte(subscribeSuccessMsg))
+		g.wsClientStore.Save(sub.App, memberID, ws)
+	}
 }
 
-func (g *gatewayServer) verifyConnection(ws *websocket.Conn) {
+func (g *gatewayServer) verifyConnection(ws *websocket.Conn) int {
 	var auth AuthMessage
 	_, msg, err := ws.ReadMessage()
 	if err != nil {
-		return
+		return -1
 	}
 
 	if err := json.Unmarshal(msg, &auth); err != nil {
 		ws.WriteMessage(websocket.TextMessage, []byte(`{code:400,message:"missing auth message"}`))
-		return
+		return -1
 	}
-
-	g.wsClientStore.Save(auth.MemberID, ws)
 
 	if auth.MemberID <= 0 {
 		ws.WriteMessage(websocket.TextMessage, []byte(`{code:200,message:"hello stranger"}`))
-		return
+		return 0
 	}
 
 	if !g.authServer.Auth(auth.MemberID, auth.Token) {
 		ws.WriteMessage(websocket.TextMessage, []byte(`{code:401,message:"unauthorized"}`))
-		return
+		return 0
 	}
 
 	ws.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf(`{code:200,message:"hello %d"}`, auth.MemberID)))
+	return auth.MemberID
 }
