@@ -72,22 +72,7 @@ func (g *gatewayServer) websocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for {
-		_, msg, err := ws.ReadMessage()
-		if err != nil {
-			return
-		}
-
-		var sub SubscribeMessage
-		if err := json.Unmarshal(msg, &sub); err != nil {
-			ws.WriteMessage(websocket.TextMessage, []byte(`{code:400,message:"bad subscribe message"}`))
-			continue
-		}
-
-		subscribeSuccessMsg := fmt.Sprintf(`{code:200,message:"subscribe %s success"}`, sub.App)
-		ws.WriteMessage(websocket.TextMessage, []byte(subscribeSuccessMsg))
-		g.wsClientStore.Save(sub.App, memberID, ws)
-	}
+	g.waitForSubscribe(ws, memberID)
 }
 
 func (g *gatewayServer) verifyConnection(ws *websocket.Conn) int {
@@ -114,4 +99,23 @@ func (g *gatewayServer) verifyConnection(ws *websocket.Conn) int {
 
 	ws.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf(`{code:200,message:"hello %d"}`, auth.MemberID)))
 	return auth.MemberID
+}
+
+func (g *gatewayServer) waitForSubscribe(ws *websocket.Conn, memberID int) {
+	for {
+		_, msg, err := ws.ReadMessage()
+		if err != nil {
+			return
+		}
+
+		var sub SubscribeMessage
+		if err := json.Unmarshal(msg, &sub); err != nil {
+			ws.WriteMessage(websocket.TextMessage, []byte(`{code:400,message:"bad subscribe message"}`))
+			continue
+		}
+
+		subscribeSuccessMsg := fmt.Sprintf(`{code:200,message:"subscribe %s success"}`, sub.App)
+		ws.WriteMessage(websocket.TextMessage, []byte(subscribeSuccessMsg))
+		g.wsClientStore.Save(sub.App, memberID, ws)
+	}
 }
