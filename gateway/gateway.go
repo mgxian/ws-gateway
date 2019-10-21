@@ -8,12 +8,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type app = string
-type memberID = int
-type remoteAddr = string
-type wsClient map[remoteAddr]*websocket.Conn
-type memberWSClients map[memberID]wsClient
-
 type AuthMessage struct {
 	MemberID int    `json:"member_id"`
 	Token    string `json:"token"`
@@ -118,4 +112,118 @@ func (g *gatewayServer) waitForSubscribe(ws *websocket.Conn, memberID int) {
 		ws.WriteMessage(websocket.TextMessage, []byte(subscribeSuccessMsg))
 		g.wsClientStore.Save(sub.App, memberID, ws)
 	}
+}
+
+type remoteAddr = string
+
+// MemberWSClients store websocket connections of member
+type MemberWSClients struct {
+	memberID  int
+	wsClients map[remoteAddr]*websocket.Conn
+}
+
+// NewMemberWSClients create a new MemberWSClients
+func NewMemberWSClients(memberID int) *MemberWSClients {
+	return &MemberWSClients{
+		memberID:  memberID,
+		wsClients: make(map[remoteAddr]*websocket.Conn),
+	}
+}
+
+// Save store websocket connection of member
+func (m *MemberWSClients) Save(ws *websocket.Conn) error {
+	addr := ws.RemoteAddr().String()
+	fmt.Println(addr)
+	m.wsClients[addr] = ws
+	return nil
+}
+
+func (m *MemberWSClients) WSClients() []*websocket.Conn {
+	result := make([]*websocket.Conn, 0)
+	for _, v := range m.wsClients {
+		result = append(result, v)
+	}
+	return result
+}
+
+// APPWSClients store websocket connections of app
+type APPWSClients struct {
+	name          string
+	memberClients map[int]*MemberWSClients
+}
+
+// NewAPPWSClients create a new APPWSClients
+func NewAPPWSClients(name string) *APPWSClients {
+	return &APPWSClients{
+		name:          name,
+		memberClients: make(map[int]*MemberWSClients),
+	}
+}
+
+// Save store websocket connection of app
+func (app *APPWSClients) Save(memberID int, ws *websocket.Conn) error {
+	mwsc, ok := app.memberClients[memberID]
+	if !ok {
+		mwsc = NewMemberWSClients(memberID)
+		app.memberClients[memberID] = mwsc
+	}
+	return mwsc.Save(ws)
+}
+
+func (app *APPWSClients) WSClientsForMember(memberID int) []*websocket.Conn {
+	memberClient, ok := app.memberClients[memberID]
+	if !ok {
+		return nil
+	}
+	return memberClient.WSClients()
+}
+
+// WSClientStore store websocket connection
+type WSClientStore struct {
+	appClients map[string]*APPWSClients
+}
+
+// NewWSClientStore create a new WSClientStore
+func NewWSClientStore() *WSClientStore {
+	store := &WSClientStore{
+		appClients: make(map[string]*APPWSClients),
+	}
+	return store
+}
+
+// Save store websocket connection
+func (wcs *WSClientStore) Save(app string, memberID int, ws *websocket.Conn) error {
+	if app != "im" {
+		memberID = 0
+	}
+
+	if app == "im" && memberID <= 0 {
+		return nil
+	}
+
+	appWSClient, ok := wcs.appClients[app]
+	if !ok {
+		appWSClient = NewAPPWSClients(app)
+		wcs.appClients[app] = appWSClient
+	}
+	return appWSClient.Save(memberID, ws)
+}
+
+// PublicWSClientsForApp return public websocket connections for app
+func (wcs *WSClientStore) PublicWSClientsForApp(app string) []*websocket.Conn {
+	appClient, ok := wcs.appClients[app]
+	if !ok {
+		return nil
+	}
+	return appClient.WSClientsForMember(0)
+}
+
+// PrivateWSClientsForMember return private websocket connections for member
+func (wcs *WSClientStore) PrivateWSClientsForMember(memberID int) []*websocket.Conn {
+	app := "im"
+	appClient, ok := wcs.appClients[app]
+	if !ok {
+		return nil
+	}
+	return appClient.WSClientsForMember(memberID)
 }

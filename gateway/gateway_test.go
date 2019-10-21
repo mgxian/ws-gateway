@@ -99,7 +99,8 @@ func TestWithRegister(t *testing.T) {
 		{false, "not valid member connect", 12345, "65432", `{code:401,message:"unauthorized"}`, []string{"im", "match"}},
 	}
 
-	aStubWSClientStore := &StubWSClientStore{imClient: make(map[int][]*websocket.Conn)}
+	// aStubWSClientStore := &StubWSClientStore{imClient: make(map[int][]*websocket.Conn)}
+	aStubWSClientStore := NewWSClientStore()
 	authServer := &FakeAuthServer{}
 	server := httptest.NewServer(NewGatewayServer(aStubWSClientStore, authServer))
 	defer server.Close()
