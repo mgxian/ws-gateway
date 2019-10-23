@@ -69,9 +69,9 @@ type Server struct {
 }
 
 type wsClientStore interface {
-	save(app string, memberID int, ws *wsConn) error
-	publicWSClientsForApp(app string) []*wsConn
-	privateWSClientsForMember(memberID int) []*wsConn
+	save(app string, memberID int, ws Conn) error
+	publicWSClientsForApp(app string) []Conn
+	privateWSClientsForMember(memberID int) []Conn
 }
 
 // NewGatewayServer create a new gateway server
@@ -167,19 +167,19 @@ type remoteAddr = string
 // MemberWSClients store websocket connections of member
 type MemberWSClients struct {
 	memberID int
-	wsConns  map[remoteAddr]*wsConn
+	wsConns  map[remoteAddr]Conn
 }
 
 // NewMemberWSClients create a new MemberWSClients
 func NewMemberWSClients(memberID int) *MemberWSClients {
 	return &MemberWSClients{
 		memberID: memberID,
-		wsConns:  make(map[remoteAddr]*wsConn),
+		wsConns:  make(map[remoteAddr]Conn),
 	}
 }
 
 // Save store websocket connection of member
-func (m *MemberWSClients) save(ws *wsConn) error {
+func (m *MemberWSClients) save(ws Conn) error {
 	addr := ws.RemoteAddr()
 	fmt.Println(addr)
 	m.wsConns[addr] = ws
@@ -187,8 +187,8 @@ func (m *MemberWSClients) save(ws *wsConn) error {
 }
 
 // WSClients return websocket connections of member
-func (m *MemberWSClients) wsClients() []*wsConn {
-	result := make([]*wsConn, 0)
+func (m *MemberWSClients) wsClients() []Conn {
+	result := make([]Conn, 0)
 	for _, v := range m.wsConns {
 		result = append(result, v)
 	}
@@ -210,7 +210,7 @@ func NewAPPWSClients(name string) *APPWSClients {
 }
 
 // Save store websocket connection of app
-func (app *APPWSClients) save(memberID int, ws *wsConn) error {
+func (app *APPWSClients) save(memberID int, ws Conn) error {
 	mwsc, ok := app.memberClients[memberID]
 	if !ok {
 		mwsc = NewMemberWSClients(memberID)
@@ -220,7 +220,7 @@ func (app *APPWSClients) save(memberID int, ws *wsConn) error {
 }
 
 // WSClientsForMember returns websocket connections of member
-func (app *APPWSClients) wsClientsForMember(memberID int) []*wsConn {
+func (app *APPWSClients) wsClientsForMember(memberID int) []Conn {
 	memberClient, ok := app.memberClients[memberID]
 	if !ok {
 		return nil
@@ -242,7 +242,7 @@ func NewWSClientStore() *WSClientStore {
 }
 
 // Save store websocket connection
-func (wcs *WSClientStore) save(app string, memberID int, ws *wsConn) error {
+func (wcs *WSClientStore) save(app string, memberID int, ws Conn) error {
 	if app != "im" {
 		memberID = 0
 	}
@@ -260,7 +260,7 @@ func (wcs *WSClientStore) save(app string, memberID int, ws *wsConn) error {
 }
 
 // PublicWSClientsForApp return public websocket connections for app
-func (wcs *WSClientStore) publicWSClientsForApp(app string) []*wsConn {
+func (wcs *WSClientStore) publicWSClientsForApp(app string) []Conn {
 	appClient, ok := wcs.appClients[app]
 	if !ok {
 		return nil
@@ -269,7 +269,7 @@ func (wcs *WSClientStore) publicWSClientsForApp(app string) []*wsConn {
 }
 
 // PrivateWSClientsForMember return private websocket connections for member
-func (wcs *WSClientStore) privateWSClientsForMember(memberID int) []*wsConn {
+func (wcs *WSClientStore) privateWSClientsForMember(memberID int) []Conn {
 	app := "im"
 	appClient, ok := wcs.appClients[app]
 	if !ok {
