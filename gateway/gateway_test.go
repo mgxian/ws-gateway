@@ -15,12 +15,14 @@ import (
 )
 
 type StubWSClientStore struct {
-	wsClients   []*websocket.Conn
-	imClient    map[int][]*websocket.Conn
-	matchClient []*websocket.Conn
+	wsClients                          []*wsConn
+	imClient                           map[int][]*wsConn
+	matchClient                        []*wsConn
+	publicWSClientsForAppWasCalled     bool
+	privateWSClientsForMemberWasCalled bool
 }
 
-func (s *StubWSClientStore) Save(app string, memberID int, ws *websocket.Conn) error {
+func (s *StubWSClientStore) save(app string, memberID int, ws *wsConn) error {
 	s.wsClients = append(s.wsClients, ws)
 	if app == "im" && memberID > 0 {
 		s.imClient[memberID] = append(s.imClient[memberID], ws)
@@ -33,14 +35,16 @@ func (s *StubWSClientStore) Save(app string, memberID int, ws *websocket.Conn) e
 	return nil
 }
 
-func (s *StubWSClientStore) PublicWSClientsForApp(app string) []*websocket.Conn {
+func (s *StubWSClientStore) publicWSClientsForApp(app string) []*wsConn {
+	s.publicWSClientsForAppWasCalled = true
 	if app == "match" {
 		return s.matchClient
 	}
 	return nil
 }
 
-func (s *StubWSClientStore) PrivateWSClientsForMember(memberID int) []*websocket.Conn {
+func (s *StubWSClientStore) privateWSClientsForMember(memberID int) []*wsConn {
+	s.privateWSClientsForMemberWasCalled = true
 	return s.imClient[memberID]
 }
 
@@ -123,15 +127,15 @@ func TestWithRegister(t *testing.T) {
 			if tt.valid {
 				wantImClientCount = 1
 			}
-			assert.Equal(t, wantImClientCount, len(aStubWSClientStore.PrivateWSClientsForMember(tt.memberID)))
+			assert.Equal(t, wantImClientCount, len(aStubWSClientStore.privateWSClientsForMember(tt.memberID)))
 		})
 	}
-	assert.Equal(t, 3, len(aStubWSClientStore.PublicWSClientsForApp("match")))
+	assert.Equal(t, 3, len(aStubWSClientStore.publicWSClientsForApp("match")))
 }
 
 func TestWithNoRegister(t *testing.T) {
 	aStubWSClientStore := &StubWSClientStore{
-		wsClients: make([]*websocket.Conn, 0),
+		wsClients: make([]*wsConn, 0),
 	}
 	authServer := &FakeAuthServer{}
 	server := httptest.NewServer(NewGatewayServer(aStubWSClientStore, authServer))
@@ -157,32 +161,40 @@ func TestWithNoRegister(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestSubscription(t *testing.T) {
-}
-
 func TestPushMessage(t *testing.T) {
-	aStubWSClientStore := &StubWSClientStore{
-		wsClients: make([]*websocket.Conn, 0),
-	}
 	authServer := &FakeAuthServer{}
-	server := NewGatewayServer(aStubWSClientStore, authServer)
 	response := httptest.NewRecorder()
 	msg := PushMessage{
+		APP:      "match",
 		MemberID: -1,
 		Text:     `{"hello":"world"}`,
 	}
 
-	msgJSON, _ := json.Marshal(msg)
-
 	t.Run("broadcast message", func(t *testing.T) {
+		store := &StubWSClientStore{
+			wsClients: make([]*wsConn, 0),
+		}
+		server := NewGatewayServer(store, authServer)
+		msgJSON, _ := json.Marshal(msg)
 		request := httptest.NewRequest(http.MethodPost, "/broadcast", bytes.NewReader(msgJSON))
 		server.ServeHTTP(response, request)
 		assert.Equal(t, response.Code, http.StatusAccepted)
+		assert.Equal(t, store.publicWSClientsForAppWasCalled, true)
+		assert.Equal(t, store.privateWSClientsForMemberWasCalled, false)
 	})
 
 	t.Run("unicast message", func(t *testing.T) {
+		store := &StubWSClientStore{
+			wsClients: make([]*wsConn, 0),
+		}
+		server := NewGatewayServer(store, authServer)
+		msg.APP = "im"
+		msg.MemberID = 123456
+		msgJSON, _ := json.Marshal(msg)
 		request := httptest.NewRequest(http.MethodPost, "/unicast", bytes.NewReader(msgJSON))
 		server.ServeHTTP(response, request)
 		assert.Equal(t, response.Code, http.StatusAccepted)
+		assert.Equal(t, store.privateWSClientsForMemberWasCalled, true)
+		assert.Equal(t, store.publicWSClientsForAppWasCalled, false)
 	})
 }
