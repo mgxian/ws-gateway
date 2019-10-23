@@ -8,25 +8,30 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// AuthMessage client auth message
 type AuthMessage struct {
 	MemberID int    `json:"member_id"`
 	Token    string `json:"token"`
 }
 
+// SubscribeMessage client subscribe data message
 type SubscribeMessage struct {
 	App string `json:"app"`
 }
 
+// PushMessage push request message
 type PushMessage struct {
 	MemberID int    `json:"member_id"`
 	Text     string `json:"text"`
 }
 
+// AuthServer client auth server interface
 type AuthServer interface {
 	Auth(int, string) bool
 }
 
-type gatewayServer struct {
+// Server websocket gateway server
+type Server struct {
 	upgrader      websocket.Upgrader
 	wsClientStore wsClientStore
 	authServer    AuthServer
@@ -38,15 +43,16 @@ type wsClientStore interface {
 	PrivateWSClientsForMember(memberID int) []*websocket.Conn
 }
 
-func NewGatewayServer(store wsClientStore, authServer AuthServer) *gatewayServer {
-	return &gatewayServer{
+// NewGatewayServer create a new gateway server
+func NewGatewayServer(store wsClientStore, authServer AuthServer) *Server {
+	return &Server{
 		upgrader:      websocket.Upgrader{},
 		wsClientStore: store,
 		authServer:    authServer,
 	}
 }
 
-func (g *gatewayServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (g *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/push" {
 		g.websocket(w, r)
 	}
@@ -54,7 +60,7 @@ func (g *gatewayServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (g *gatewayServer) websocket(w http.ResponseWriter, r *http.Request) {
+func (g *Server) websocket(w http.ResponseWriter, r *http.Request) {
 	ws, err := g.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
@@ -69,7 +75,7 @@ func (g *gatewayServer) websocket(w http.ResponseWriter, r *http.Request) {
 	g.waitForSubscribe(ws, memberID)
 }
 
-func (g *gatewayServer) verifyConnection(ws *websocket.Conn) int {
+func (g *Server) verifyConnection(ws *websocket.Conn) int {
 	var auth AuthMessage
 	_, msg, err := ws.ReadMessage()
 	if err != nil {
@@ -95,7 +101,7 @@ func (g *gatewayServer) verifyConnection(ws *websocket.Conn) int {
 	return auth.MemberID
 }
 
-func (g *gatewayServer) waitForSubscribe(ws *websocket.Conn, memberID int) {
+func (g *Server) waitForSubscribe(ws *websocket.Conn, memberID int) {
 	for {
 		_, msg, err := ws.ReadMessage()
 		if err != nil {
@@ -138,6 +144,7 @@ func (m *MemberWSClients) Save(ws *websocket.Conn) error {
 	return nil
 }
 
+// WSClients return websocket connections of member
 func (m *MemberWSClients) WSClients() []*websocket.Conn {
 	result := make([]*websocket.Conn, 0)
 	for _, v := range m.wsClients {
@@ -170,6 +177,7 @@ func (app *APPWSClients) Save(memberID int, ws *websocket.Conn) error {
 	return mwsc.Save(ws)
 }
 
+// WSClientsForMember returns websocket connections of member
 func (app *APPWSClients) WSClientsForMember(memberID int) []*websocket.Conn {
 	memberClient, ok := app.memberClients[memberID]
 	if !ok {
