@@ -94,12 +94,20 @@ func (g *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if pushMsg.APP == "im" {
-		g.wsClientStore.privateWSClientsForMember(pushMsg.MemberID)
-	} else {
-		g.wsClientStore.publicWSClientsForApp(pushMsg.APP)
-	}
 	w.WriteHeader(http.StatusAccepted)
+
+	if pushMsg.APP == "im" {
+		conns := g.wsClientStore.privateWSClientsForMember(pushMsg.MemberID)
+		for _, conn := range conns {
+			conn.WriteMessage([]byte(pushMsg.Text))
+		}
+		return
+	}
+
+	conns := g.wsClientStore.publicWSClientsForApp(pushMsg.APP)
+	for _, conn := range conns {
+		conn.WriteMessage([]byte(pushMsg.Text))
+	}
 }
 
 func (g *Server) websocket(w http.ResponseWriter, r *http.Request) {
@@ -181,7 +189,6 @@ func NewMemberWSClients(memberID int) *MemberWSClients {
 // Save store websocket connection of member
 func (m *MemberWSClients) save(ws Conn) error {
 	addr := ws.RemoteAddr()
-	fmt.Println(addr)
 	m.wsConns[addr] = ws
 	return nil
 }
