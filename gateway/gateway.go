@@ -81,6 +81,7 @@ func NewGatewayServer(store wsClientStore, authServer AuthServer) *Server {
 func (g *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/push" {
 		g.websocket(w, r)
+		return
 	}
 
 	var pushMsg PushMessage

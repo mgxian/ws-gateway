@@ -1,5 +1,7 @@
 package gateway
 
+import "sync"
+
 type remoteAddr = string
 
 // memberWSClients store websocket connections of member
@@ -68,6 +70,7 @@ func (app *appWSClients) wsClientsForMember(memberID int) []Conn {
 // inMemeryWSClientStore store websocket connection
 type inMemeryWSClientStore struct {
 	appClients map[string]*appWSClients
+	sync.RWMutex
 }
 
 // newInMemeryWSClientStore create a new WSClientStore
@@ -80,6 +83,9 @@ func newInMemeryWSClientStore() *inMemeryWSClientStore {
 
 // Save store websocket connection
 func (wcs *inMemeryWSClientStore) save(app string, memberID int, ws Conn) error {
+	wcs.Lock()
+	defer wcs.Unlock()
+
 	if app != "im" {
 		memberID = 0
 	}
@@ -98,6 +104,9 @@ func (wcs *inMemeryWSClientStore) save(app string, memberID int, ws Conn) error 
 
 // PublicWSClientsForApp return public websocket connections for app
 func (wcs *inMemeryWSClientStore) publicWSClientsForApp(app string) []Conn {
+	wcs.RLock()
+	defer wcs.RUnlock()
+
 	appClient, ok := wcs.appClients[app]
 	if !ok {
 		return nil
@@ -107,6 +116,9 @@ func (wcs *inMemeryWSClientStore) publicWSClientsForApp(app string) []Conn {
 
 // PrivateWSClientsForMember return private websocket connections for member
 func (wcs *inMemeryWSClientStore) privateWSClientsForMember(memberID int) []Conn {
+	wcs.RLock()
+	defer wcs.RUnlock()
+
 	app := "im"
 	appClient, ok := wcs.appClients[app]
 	if !ok {

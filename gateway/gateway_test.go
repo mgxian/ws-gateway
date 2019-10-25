@@ -39,17 +39,20 @@ func TestWithRegister(t *testing.T) {
 			defer ws.Close()
 
 			assertStatusCode(t, response.StatusCode, http.StatusSwitchingProtocols)
-			assertAuth(t, ws, tt.memberID, tt.token, tt.wantedAuthReply)
-			assertSubscribe(t, ws, tt.subscribedApps, store)
+			mustSendAuthMessage(t, ws, tt.memberID, tt.token)
+			msg := mustReadMessageWithTimeout(t, ws, time.Millisecond*10)
+			assertMessage(t, msg, tt.wantedAuthReply)
+
+			assertSubscribe(t, ws, tt.subscribedApps)
 
 			wantImClientCount := 0
 			if tt.valid {
 				wantImClientCount = 1
 			}
-			assertWSclientCount(t, len(store.privateWSClientsForMember(tt.memberID)), wantImClientCount)
+			assertWSClientCount(t, len(store.privateWSClientsForMember(tt.memberID)), wantImClientCount)
 		})
 	}
-	assertWSclientCount(t, 3, len(store.publicWSClientsForApp("match")))
+	assertWSClientCount(t, 3, len(store.publicWSClientsForApp("match")))
 }
 
 func TestWithNoRegister(t *testing.T) {
@@ -65,16 +68,12 @@ func TestWithNoRegister(t *testing.T) {
 
 	assertStatusCode(t, response.StatusCode, http.StatusSwitchingProtocols)
 
-	err := ws.WriteMessage(websocket.TextMessage, []byte("Hello I'm hacker"))
-	assertNoError(t, err)
+	mustWriteMessage(t, ws, "Hello I'm hacker")
 
-	ws.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
-	_, msg, err := ws.ReadMessage()
-	assertNoError(t, err)
-	assertMessage(t, string(msg), missingAuthMessage)
+	msg := mustReadMessageWithTimeout(t, ws, time.Millisecond*10)
+	assertMessage(t, msg, missingAuthMessage)
 
-	ws.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
-	_, _, err = ws.ReadMessage()
+	_, err := readMessageWithTimeout(ws, time.Millisecond*10)
 	assertError(t, err)
 }
 
@@ -123,6 +122,10 @@ func TestPushMessage(t *testing.T) {
 	})
 }
 
+func TestWSClientClose(t *testing.T) {
+
+}
+
 func mustConnectTo(t *testing.T, server *httptest.Server) (*websocket.Conn, *http.Response) {
 	wsURLPrefix := "ws" + strings.TrimPrefix(server.URL, "http")
 	wsURL := wsURLPrefix + "/push"
@@ -133,7 +136,7 @@ func mustConnectTo(t *testing.T, server *httptest.Server) (*websocket.Conn, *htt
 	return ws, response
 }
 
-func assertWSclientCount(t *testing.T, got, want int) {
+func assertWSClientCount(t *testing.T, got, want int) {
 	t.Helper()
 	if got != want {
 		t.Errorf("got wrong websocket client count got %d want %d", got, want)
@@ -141,30 +144,35 @@ func assertWSclientCount(t *testing.T, got, want int) {
 }
 
 func assertEqual(t *testing.T, got, want interface{}) {
+	t.Helper()
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, want %v", got, want)
 	}
 }
 
 func assertMessage(t *testing.T, got, want string) {
+	t.Helper()
 	if got != want {
 		t.Errorf("got wrong message got %q, want %q", got, want)
 	}
 }
 
 func assertResponse(t *testing.T, got, want string) {
+	t.Helper()
 	if got != want {
 		t.Errorf("got wrong response got %q, want %q", got, want)
 	}
 }
 
 func assertNoError(t *testing.T, err error) {
+	t.Helper()
 	if err != nil {
 		t.Errorf("did not want error but got an error %v", err)
 	}
 }
 
 func assertError(t *testing.T, err error) {
+	t.Helper()
 	if err == nil {
 		t.Errorf("did want error but did not got an error %v", err)
 	}
@@ -177,29 +185,43 @@ func assertStatusCode(t *testing.T, got, want int) {
 	}
 }
 
-func assertAuth(t *testing.T, ws *websocket.Conn, memberID int, token string, want string) {
+func mustSendAuthMessage(t *testing.T, ws *websocket.Conn, memberID int, token string) {
 	authMsg := fmt.Sprintf(`{"member_id": %d, "token": "%s"}`, memberID, token)
-	err := ws.WriteMessage(websocket.TextMessage, []byte(authMsg))
-	assertNoError(t, err)
-
-	ws.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
-	_, msg, err := ws.ReadMessage()
-	assertNoError(t, err)
-	assertMessage(t, string(msg), want)
+	mustWriteMessage(t, ws, authMsg)
 }
 
-func assertSubscribe(t *testing.T, ws *websocket.Conn, apps []string, store wsClientStore) {
-	for _, app := range apps {
-		subscribeMsg := fmt.Sprintf(`{"app": "%s"}`, app)
-		ws.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
-		err := ws.WriteMessage(websocket.TextMessage, []byte(subscribeMsg))
-		assertNoError(t, err)
+func mustWriteMessage(t *testing.T, ws *websocket.Conn, msg string) {
+	err := ws.WriteMessage(websocket.TextMessage, []byte(msg))
+	if err != nil {
+		t.Fatalf("must write message but get an %v", err)
+	}
+}
 
-		ws.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
-		_, msg, err := ws.ReadMessage()
-		assertNoError(t, err)
+func mustReadMessageWithTimeout(t *testing.T, ws *websocket.Conn, timeout time.Duration) string {
+	msg, err := readMessageWithTimeout(ws, timeout)
+	if err != nil {
+		t.Fatalf("must get message but did not get one %v", err)
+	}
+	return string(msg)
+}
+
+func readMessageWithTimeout(ws *websocket.Conn, timeout time.Duration) (string, error) {
+	ws.SetReadDeadline(time.Now().Add(timeout))
+	_, msg, err := ws.ReadMessage()
+	return string(msg), err
+}
+
+func mustSendSubscribeMessage(t *testing.T, ws *websocket.Conn, app string) {
+	subscribeMsg := fmt.Sprintf(`{"app": "%s"}`, app)
+	mustWriteMessage(t, ws, subscribeMsg)
+}
+
+func assertSubscribe(t *testing.T, ws *websocket.Conn, apps []string) {
+	for _, app := range apps {
+		mustSendSubscribeMessage(t, ws, app)
+		msg := mustReadMessageWithTimeout(t, ws, time.Millisecond*10)
 		want := subscribeSuccessMessageForApp(app)
-		assertMessage(t, string(msg), want)
+		assertMessage(t, msg, want)
 	}
 }
 
