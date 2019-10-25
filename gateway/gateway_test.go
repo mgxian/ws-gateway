@@ -23,9 +23,9 @@ func TestWithRegister(t *testing.T) {
 		wantedAuthReply string
 		subscribedApps  []string
 	}{
-		{false, "anonymous user connect", -1, "", `{code:200,message:"hello stranger"}`, []string{"match"}},
-		{true, "valid member connect", 123456, "654321", `{code:200,message:"hello 123456"}`, []string{"im", "match"}},
-		{false, "not valid member connect", 12345, "65432", `{code:401,message:"unauthorized"}`, []string{"im", "match"}},
+		{false, "anonymous user connect", -1, "", helloStrangerMessage, []string{"match"}},
+		{true, "valid member connect", 123456, "654321", helloMessageForMember(123456), []string{"im", "match"}},
+		{false, "not valid member connect", 12345, "65432", unauthorizedMessage, []string{"im", "match"}},
 	}
 
 	store := &StubWSClientStore{imClient: make(map[int][]Conn)}
@@ -71,7 +71,7 @@ func TestWithNoRegister(t *testing.T) {
 	ws.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
 	_, msg, err := ws.ReadMessage()
 	assertNoError(t, err)
-	assertMessage(t, string(msg), `{code:400,message:"missing auth message"}`)
+	assertMessage(t, string(msg), missingAuthMessage)
 
 	ws.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
 	_, _, err = ws.ReadMessage()
@@ -198,7 +198,7 @@ func assertSubscribe(t *testing.T, ws *websocket.Conn, apps []string, store wsCl
 		ws.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
 		_, msg, err := ws.ReadMessage()
 		assertNoError(t, err)
-		want := fmt.Sprintf(`{code:200,message:"subscribe %s success"}`, app)
+		want := subscribeSuccessMessageForApp(app)
 		assertMessage(t, string(msg), want)
 	}
 }
@@ -212,7 +212,7 @@ func assertBufferLengthEqual(t *testing.T, got, want int) {
 
 func newPushMessagePostRequest(url string, app string, memberID int, text string) *http.Request {
 	msg := PushMessage{
-		APP:      app,
+		App:      app,
 		MemberID: memberID,
 		Text:     text,
 	}
