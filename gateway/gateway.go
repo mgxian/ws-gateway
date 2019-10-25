@@ -35,6 +35,7 @@ type Conn interface {
 
 type wsClientStore interface {
 	save(app string, memberID int, ws Conn) error
+	delete(memberID int, ws Conn)
 	publicWSClientsForApp(app string) []Conn
 	privateWSClientsForMember(memberID int) []Conn
 }
@@ -157,6 +158,7 @@ func (g *Server) waitForSubscribe(ws *websocket.Conn, memberID int) {
 	for {
 		_, msg, err := ws.ReadMessage()
 		if err != nil {
+			g.wsClientStore.delete(memberID, newWSConn(ws))
 			return
 		}
 

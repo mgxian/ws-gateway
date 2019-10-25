@@ -20,4 +20,12 @@ func TestWSClientStore(t *testing.T) {
 
 	assertWSClientCount(t, len(store.privateWSClientsForMember(notConnectedImMemberID)), 0)
 	assertWSClientCount(t, len(store.privateWSClientsForMember(imMemberID)), 1)
+
+	store.delete(-1, ws1)
+	assertWSClientCount(t, len(store.publicWSClientsForApp(matchApp)), 1)
+	assertWSClientCount(t, len(store.privateWSClientsForMember(imMemberID)), 1)
+
+	store.delete(imMemberID, ws2)
+	assertWSClientCount(t, len(store.publicWSClientsForApp(matchApp)), 0)
+	assertWSClientCount(t, len(store.privateWSClientsForMember(imMemberID)), 0)
 }

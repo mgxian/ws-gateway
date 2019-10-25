@@ -50,9 +50,9 @@ func TestWithRegister(t *testing.T) {
 				wantImClientCount = 1
 			}
 			assertWSClientCount(t, len(store.privateWSClientsForMember(tt.memberID)), wantImClientCount)
+			assertWSClientCount(t, len(store.publicWSClientsForApp("match")), 1)
 		})
 	}
-	assertWSClientCount(t, 3, len(store.publicWSClientsForApp("match")))
 }
 
 func TestWithNoRegister(t *testing.T) {
@@ -123,7 +123,33 @@ func TestPushMessage(t *testing.T) {
 }
 
 func TestWSClientClose(t *testing.T) {
+	store := &StubWSClientStore{imClient: make(map[int][]Conn)}
+	authServer := &FakeAuthServer{}
+	server := httptest.NewServer(NewGatewayServer(store, authServer))
+	defer server.Close()
 
+	ws1, _ := mustConnectTo(t, server)
+	mustSendAuthMessage(t, ws1, -1, "")
+	mustSendSubscribeMessage(t, ws1, "match")
+
+	ws2, _ := mustConnectTo(t, server)
+	mustSendAuthMessage(t, ws2, 123456, "654321")
+	mustSendSubscribeMessage(t, ws2, "im")
+	mustSendSubscribeMessage(t, ws2, "match")
+
+	time.Sleep(time.Millisecond * 10)
+	assertWSClientCount(t, len(store.publicWSClientsForApp("match")), 2)
+	assertWSClientCount(t, len(store.privateWSClientsForMember(123456)), 1)
+
+	ws1.Close()
+	time.Sleep(time.Millisecond * 10)
+	assertWSClientCount(t, len(store.publicWSClientsForApp("match")), 1)
+	assertWSClientCount(t, len(store.privateWSClientsForMember(123456)), 1)
+
+	ws2.Close()
+	time.Sleep(time.Millisecond * 10)
+	assertWSClientCount(t, len(store.publicWSClientsForApp("match")), 0)
+	assertWSClientCount(t, len(store.privateWSClientsForMember(123456)), 0)
 }
 
 func mustConnectTo(t *testing.T, server *httptest.Server) (*websocket.Conn, *http.Response) {

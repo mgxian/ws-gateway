@@ -57,6 +57,27 @@ func (s *StubWSClientStore) save(app string, memberID int, ws Conn) error {
 	return nil
 }
 
+func (s *StubWSClientStore) delete(memberID int, ws Conn) {
+	if memberID != -1 {
+		delete(s.imClient, memberID)
+	}
+
+	foundIndex := -1
+	for i, c := range s.matchClient {
+		if c.RemoteAddr() == ws.RemoteAddr() {
+			foundIndex = i
+			break
+		}
+	}
+
+	if foundIndex != -1 {
+		left := make([]Conn, 0)
+		left = append(left, s.matchClient[:foundIndex]...)
+		left = append(left, s.matchClient[foundIndex+1:]...)
+		s.matchClient = left
+	}
+}
+
 func (s *StubWSClientStore) publicWSClientsForApp(app string) []Conn {
 	s.publicWSClientsForAppWasCalled = true
 	if app == "match" {

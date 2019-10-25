@@ -1,6 +1,8 @@
 package gateway
 
-import "sync"
+import (
+	"sync"
+)
 
 type remoteAddr = string
 
@@ -23,6 +25,10 @@ func (m *memberWSClients) save(ws Conn) error {
 	addr := ws.RemoteAddr()
 	m.wsConns[addr] = ws
 	return nil
+}
+
+func (m *memberWSClients) delete(ws Conn) {
+	delete(m.wsConns, ws.RemoteAddr())
 }
 
 // wsClients return websocket connections of member
@@ -56,6 +62,12 @@ func (app *appWSClients) save(memberID int, ws Conn) error {
 		app.memberClients[memberID] = mwsc
 	}
 	return mwsc.save(ws)
+}
+
+func (app *appWSClients) delete(memberID int, ws Conn) {
+	if mwsc, ok := app.memberClients[memberID]; ok {
+		mwsc.delete(ws)
+	}
 }
 
 // wsClientsForMember returns websocket connections of member
@@ -100,6 +112,16 @@ func (wcs *inMemeryWSClientStore) save(app string, memberID int, ws Conn) error 
 		wcs.appClients[app] = appWSClient
 	}
 	return appWSClient.save(memberID, ws)
+}
+
+func (wcs *inMemeryWSClientStore) delete(memberID int, ws Conn) {
+	for app, ac := range wcs.appClients {
+		mid := memberID
+		if app != "im" {
+			mid = 0
+		}
+		ac.delete(mid, ws)
+	}
 }
 
 // PublicWSClientsForApp return public websocket connections for app
