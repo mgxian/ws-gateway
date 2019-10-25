@@ -3,6 +3,7 @@ package gateway
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -80,6 +81,7 @@ func NewGatewayServer(store wsClientStore, authServer AuthServer) *Server {
 }
 
 func (g *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.URL.Path)
 	if r.URL.Path == "/push" {
 		g.websocket(w, r)
 		return
@@ -125,7 +127,7 @@ func (g *Server) websocket(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *Server) getAuthMessage(ws *websocket.Conn) (authMsg AuthMessage, err error) {
-	msg, err := g.readMessageWithTimeout(ws, time.Second)
+	msg, err := g.readMessageWithTimeout(ws, time.Second*10)
 	err = json.Unmarshal(msg, &authMsg)
 	if err != nil {
 		authMsg = AuthMessage{}

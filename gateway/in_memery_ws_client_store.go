@@ -79,22 +79,22 @@ func (app *appWSClients) wsClientsForMember(memberID int) []Conn {
 	return memberClient.wsClients()
 }
 
-// inMemeryWSClientStore store websocket connection
-type inMemeryWSClientStore struct {
+// InMemeryWSClientStore store websocket connection
+type InMemeryWSClientStore struct {
 	appClients map[string]*appWSClients
 	sync.RWMutex
 }
 
-// newInMemeryWSClientStore create a new WSClientStore
-func newInMemeryWSClientStore() *inMemeryWSClientStore {
-	store := &inMemeryWSClientStore{
+// NewInMemeryWSClientStore create a new WSClientStore
+func NewInMemeryWSClientStore() *InMemeryWSClientStore {
+	store := &InMemeryWSClientStore{
 		appClients: make(map[string]*appWSClients),
 	}
 	return store
 }
 
 // Save store websocket connection
-func (wcs *inMemeryWSClientStore) save(app string, memberID int, ws Conn) error {
+func (wcs *InMemeryWSClientStore) save(app string, memberID int, ws Conn) error {
 	wcs.Lock()
 	defer wcs.Unlock()
 
@@ -114,7 +114,7 @@ func (wcs *inMemeryWSClientStore) save(app string, memberID int, ws Conn) error 
 	return appWSClient.save(memberID, ws)
 }
 
-func (wcs *inMemeryWSClientStore) delete(memberID int, ws Conn) {
+func (wcs *InMemeryWSClientStore) delete(memberID int, ws Conn) {
 	for app, ac := range wcs.appClients {
 		mid := memberID
 		if app != "im" {
@@ -125,7 +125,7 @@ func (wcs *inMemeryWSClientStore) delete(memberID int, ws Conn) {
 }
 
 // PublicWSClientsForApp return public websocket connections for app
-func (wcs *inMemeryWSClientStore) publicWSClientsForApp(app string) []Conn {
+func (wcs *InMemeryWSClientStore) publicWSClientsForApp(app string) []Conn {
 	wcs.RLock()
 	defer wcs.RUnlock()
 
@@ -137,7 +137,7 @@ func (wcs *inMemeryWSClientStore) publicWSClientsForApp(app string) []Conn {
 }
 
 // PrivateWSClientsForMember return private websocket connections for member
-func (wcs *inMemeryWSClientStore) privateWSClientsForMember(memberID int) []Conn {
+func (wcs *InMemeryWSClientStore) privateWSClientsForMember(memberID int) []Conn {
 	wcs.RLock()
 	defer wcs.RUnlock()
 
