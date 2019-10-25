@@ -8,7 +8,7 @@ func TestWSClientStore(t *testing.T) {
 	matchApp := "match"
 	imMemberID := 123456
 	notConnectedImMemberID := 123
-	store := NewWSClientStore()
+	store := newInMemeryWSClientStore()
 	ws1 := newStubWSConn("1")
 	ws2 := newStubWSConn("2")
 	store.save(matchApp, -1, ws1)

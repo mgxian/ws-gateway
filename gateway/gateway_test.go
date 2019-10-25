@@ -16,21 +16,21 @@ import (
 
 func TestWithRegister(t *testing.T) {
 	tests := []struct {
-		valid       bool
-		description string
-		memberID    int
-		token       string
-		authReply   string
-		apps        []string
+		valid           bool
+		description     string
+		memberID        int
+		token           string
+		wantedAuthReply string
+		subscribedApps  []string
 	}{
 		{false, "anonymous user connect", -1, "", `{code:200,message:"hello stranger"}`, []string{"match"}},
 		{true, "valid member connect", 123456, "654321", `{code:200,message:"hello 123456"}`, []string{"im", "match"}},
 		{false, "not valid member connect", 12345, "65432", `{code:401,message:"unauthorized"}`, []string{"im", "match"}},
 	}
 
-	aStubWSClientStore := &StubWSClientStore{imClient: make(map[int][]Conn)}
+	store := &StubWSClientStore{imClient: make(map[int][]Conn)}
 	authServer := &FakeAuthServer{}
-	server := httptest.NewServer(NewGatewayServer(aStubWSClientStore, authServer))
+	server := httptest.NewServer(NewGatewayServer(store, authServer))
 	defer server.Close()
 
 	for _, tt := range tests {
@@ -39,24 +39,17 @@ func TestWithRegister(t *testing.T) {
 			defer ws.Close()
 
 			assertStatusCode(t, response.StatusCode, http.StatusSwitchingProtocols)
-			assertAuth(t, ws, tt.memberID, tt.token, tt.authReply)
-			assertSubscribe(t, ws, tt.apps, aStubWSClientStore)
+			assertAuth(t, ws, tt.memberID, tt.token, tt.wantedAuthReply)
+			assertSubscribe(t, ws, tt.subscribedApps, store)
 
 			wantImClientCount := 0
 			if tt.valid {
 				wantImClientCount = 1
 			}
-			assertWSclientCount(t, len(aStubWSClientStore.privateWSClientsForMember(tt.memberID)), wantImClientCount)
+			assertWSclientCount(t, len(store.privateWSClientsForMember(tt.memberID)), wantImClientCount)
 		})
 	}
-	assertWSclientCount(t, 3, len(aStubWSClientStore.publicWSClientsForApp("match")))
-}
-
-func assertWSclientCount(t *testing.T, got, want int) {
-	t.Helper()
-	if got != want {
-		t.Errorf("got wrong websocket client count got %d want %d", got, want)
-	}
+	assertWSclientCount(t, 3, len(store.publicWSClientsForApp("match")))
 }
 
 func TestWithNoRegister(t *testing.T) {
@@ -97,11 +90,11 @@ func TestPushMessage(t *testing.T) {
 	store.save("match", -1, ws2)
 	store.save("im", imMemberID, ws2)
 	server := NewGatewayServer(store, authServer)
-	t.Run("broadcast message", func(t *testing.T) {
+	t.Run("push public message", func(t *testing.T) {
 		ws1.clear()
 		ws2.clear()
 		msgText := `{"hello":"world"}`
-		request := newPushMessagePostRequest("/broadcast", "match", -1, msgText)
+		request := newPushMessagePostRequest("/public", "match", -1, msgText)
 		response := httptest.NewRecorder()
 		server.ServeHTTP(response, request)
 		assertEqual(t, store.publicWSClientsForAppWasCalled, true)
@@ -114,11 +107,11 @@ func TestPushMessage(t *testing.T) {
 		assertMessage(t, msgText, string(ws2.buffer[0]))
 	})
 
-	t.Run("unicast message", func(t *testing.T) {
+	t.Run("push im message", func(t *testing.T) {
 		ws1.clear()
 		ws2.clear()
 		msgText := fmt.Sprintf(`{"hello":"%d"}`, imMemberID)
-		request := newPushMessagePostRequest("/unicast", "im", imMemberID, msgText)
+		request := newPushMessagePostRequest("/im", "im", imMemberID, msgText)
 		response := httptest.NewRecorder()
 		server.ServeHTTP(response, request)
 		assertStatusCode(t, response.Code, http.StatusAccepted)
@@ -138,6 +131,13 @@ func mustConnectTo(t *testing.T, server *httptest.Server) (*websocket.Conn, *htt
 		t.Fatalf("connection failed %v", err)
 	}
 	return ws, response
+}
+
+func assertWSclientCount(t *testing.T, got, want int) {
+	t.Helper()
+	if got != want {
+		t.Errorf("got wrong websocket client count got %d want %d", got, want)
+	}
 }
 
 func assertEqual(t *testing.T, got, want interface{}) {
