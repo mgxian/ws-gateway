@@ -74,7 +74,11 @@ type Server struct {
 // NewGatewayServer create a new gateway server
 func NewGatewayServer(store wsClientStore, authServer AuthServer) *Server {
 	return &Server{
-		upgrader:      websocket.Upgrader{},
+		upgrader: websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				return true
+			},
+		},
 		wsClientStore: store,
 		authServer:    authServer,
 	}
