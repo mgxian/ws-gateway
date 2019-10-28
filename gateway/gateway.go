@@ -11,12 +11,13 @@ import (
 )
 
 const (
-	missingAuthMessage            = `{code:400,message:"missing auth message"}`
-	unauthorizedMessage           = `{code:401,message:"unauthorized"}`
-	badSubscribeMessage           = `{code:400,message:"bad subscribe message"}`
-	helloStrangerMessage          = `{code:200,message:"hello stranger"}`
-	helloMemberMessageFormat      = `{code:200,message:"hello %d"}`
-	subscribeSuccessMessageFormat = `{code:200,message:"subscribe %s success"}`
+	missingAuthMessage              = `{code:400,message:"missing auth message"}`
+	unauthorizedMessage             = `{code:401,message:"unauthorized"}`
+	badSubscribeMessage             = `{code:400,message:"bad subscribe message"}`
+	helloStrangerMessage            = `{code:200,message:"hello stranger"}`
+	helloMemberMessageFormat        = `{code:200,message:"hello %d"}`
+	subscribeSuccessMessageFormat   = `{code:200,message:"subscribe %s success"}`
+	subscribeForbiddenMessageFormat = `{code:403,message:"subscribe %s forbidden"}`
 )
 
 func helloMessageForMember(memberID int) string {
@@ -25,6 +26,10 @@ func helloMessageForMember(memberID int) string {
 
 func subscribeSuccessMessageForApp(app string) string {
 	return fmt.Sprintf(subscribeSuccessMessageFormat, app)
+}
+
+func subscribeForbiddenMessageForApp(app string) string {
+	return fmt.Sprintf(subscribeForbiddenMessageFormat, app)
 }
 
 // Conn connection interface
@@ -171,6 +176,11 @@ func (g *Server) waitForSubscribe(ws *websocket.Conn, memberID int) {
 		var sub SubscribeMessage
 		if err := json.Unmarshal(msg, &sub); err != nil {
 			ws.WriteMessage(websocket.TextMessage, []byte(badSubscribeMessage))
+			continue
+		}
+
+		if memberID <= 0 && sub.App == "im" {
+			ws.WriteMessage(websocket.TextMessage, []byte(subscribeForbiddenMessageForApp(sub.App)))
 			continue
 		}
 

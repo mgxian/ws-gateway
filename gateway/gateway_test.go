@@ -43,7 +43,7 @@ func TestWithRegister(t *testing.T) {
 			msg := mustReadMessageWithTimeout(t, ws, time.Millisecond*10)
 			assertMessage(t, msg, tt.wantedAuthReply)
 
-			assertSubscribe(t, ws, tt.subscribedApps)
+			assertSubscribe(t, ws, tt.subscribedApps, tt.valid)
 
 			wantImClientCount := 0
 			if tt.valid {
@@ -242,11 +242,14 @@ func mustSendSubscribeMessage(t *testing.T, ws *websocket.Conn, app string) {
 	mustWriteMessage(t, ws, subscribeMsg)
 }
 
-func assertSubscribe(t *testing.T, ws *websocket.Conn, apps []string) {
+func assertSubscribe(t *testing.T, ws *websocket.Conn, apps []string, isValid bool) {
 	for _, app := range apps {
 		mustSendSubscribeMessage(t, ws, app)
 		msg := mustReadMessageWithTimeout(t, ws, time.Millisecond*10)
 		want := subscribeSuccessMessageForApp(app)
+		if !isValid && app == "im" {
+			want = subscribeForbiddenMessageForApp(app)
+		}
 		assertMessage(t, msg, want)
 	}
 }
