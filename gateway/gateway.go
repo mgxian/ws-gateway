@@ -3,6 +3,7 @@ package gateway
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
@@ -97,7 +98,13 @@ func (g *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var pushMsg PushMessage
-	if err := json.NewDecoder(r.Body).Decode(&pushMsg); err != nil {
+	postData, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if err := json.Unmarshal(postData, &pushMsg); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -107,14 +114,14 @@ func (g *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if pushMsg.App == "im" {
 		conns := g.wsClientStore.privateWSClientsForMember(pushMsg.MemberID)
 		for _, conn := range conns {
-			conn.WriteMessage([]byte(pushMsg.Text))
+			conn.WriteMessage(postData)
 		}
 		return
 	}
 
 	conns := g.wsClientStore.publicWSClientsForApp(pushMsg.App)
 	for _, conn := range conns {
-		conn.WriteMessage([]byte(pushMsg.Text))
+		conn.WriteMessage(postData)
 	}
 }
 

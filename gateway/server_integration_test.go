@@ -27,10 +27,10 @@ func TestConnectToServerAndPushPublicMessage(t *testing.T) {
 	gateway.ServeHTTP(response, request)
 
 	msg1 := mustReadMessageWithTimeout(t, ws1, time.Millisecond*10)
-	assertMessage(t, msg1, pushText)
+	assertMessage(t, msg1, string(pushMessageJSONFor(app, memberID, pushText)))
 
 	msg2 := mustReadMessageWithTimeout(t, ws2, time.Millisecond*10)
-	assertMessage(t, msg2, pushText)
+	assertMessage(t, msg2, string(pushMessageJSONFor(app, memberID, pushText)))
 }
 
 func TestConnectToServerAndPushPrivateMessage(t *testing.T) {
@@ -52,7 +52,7 @@ func TestConnectToServerAndPushPrivateMessage(t *testing.T) {
 	gateway.ServeHTTP(response, request)
 
 	msg := mustReadMessageWithTimeout(t, ws1, time.Millisecond*10)
-	assertMessage(t, msg, pushText)
+	assertMessage(t, msg, string(pushMessageJSONFor(app, memberID1, pushText)))
 
 	_, err := readMessageWithTimeout(ws2, time.Millisecond*10)
 	assertError(t, err)

@@ -94,10 +94,10 @@ func TestPushMessage(t *testing.T) {
 		assertStatusCode(t, response.Code, http.StatusAccepted)
 
 		assertBufferLengthEqual(t, len(ws1.buffer), 1)
-		assertMessage(t, msgText, string(ws1.buffer[0]))
+		assertMessage(t, string(ws1.buffer[0]), string(pushMessageJSONFor("match", -1, msgText)))
 
 		assertBufferLengthEqual(t, len(ws2.buffer), 1)
-		assertMessage(t, msgText, string(ws2.buffer[0]))
+		assertMessage(t, string(ws2.buffer[0]), string(pushMessageJSONFor("match", -1, msgText)))
 	})
 
 	t.Run("push im message", func(t *testing.T) {
@@ -112,7 +112,7 @@ func TestPushMessage(t *testing.T) {
 
 		assertBufferLengthEqual(t, len(ws1.buffer), 0)
 		assertBufferLengthEqual(t, len(ws2.buffer), 1)
-		assertMessage(t, msgText, string(ws2.buffer[0]))
+		assertMessage(t, string(ws2.buffer[0]), string(pushMessageJSONFor("im", imMemberID, msgText)))
 	})
 }
 
@@ -283,6 +283,12 @@ func assertBufferLengthEqual(t *testing.T, got, want int) {
 }
 
 func newPushMessagePostRequest(url string, app string, memberID int, text string) *http.Request {
+	msgJSON := pushMessageJSONFor(app, memberID, text)
+	request := httptest.NewRequest(http.MethodPost, url, bytes.NewReader(msgJSON))
+	return request
+}
+
+func pushMessageJSONFor(app string, memberID int, text string) []byte {
 	msg := PushMessage{
 		App:      app,
 		MemberID: memberID,
@@ -290,6 +296,5 @@ func newPushMessagePostRequest(url string, app string, memberID int, text string
 	}
 
 	msgJSON, _ := json.Marshal(msg)
-	request := httptest.NewRequest(http.MethodPost, url, bytes.NewReader(msgJSON))
-	return request
+	return msgJSON
 }
