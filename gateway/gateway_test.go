@@ -28,9 +28,7 @@ func TestWithRegister(t *testing.T) {
 		{false, "not valid member connect", 12345, "65432", unauthorizedMessage, []string{"im", "match"}},
 	}
 
-	store := &StubWSClientStore{imClient: make(map[int][]Conn)}
-	authServer := &FakeAuthServer{}
-	server := httptest.NewServer(NewGatewayServer(store, authServer))
+	server, store := newServer()
 	defer server.Close()
 
 	for _, tt := range tests {
@@ -56,11 +54,7 @@ func TestWithRegister(t *testing.T) {
 }
 
 func TestWithNoRegister(t *testing.T) {
-	store := &StubWSClientStore{
-		wsClients: make([]Conn, 0),
-	}
-	authServer := &FakeAuthServer{}
-	server := httptest.NewServer(NewGatewayServer(store, authServer))
+	server, _ := newServer()
 	defer server.Close()
 
 	ws, response := mustConnectTo(t, server)
@@ -123,9 +117,7 @@ func TestPushMessage(t *testing.T) {
 }
 
 func TestWSClientClose(t *testing.T) {
-	store := &StubWSClientStore{imClient: make(map[int][]Conn)}
-	authServer := &FakeAuthServer{}
-	server := httptest.NewServer(NewGatewayServer(store, authServer))
+	server, store := newServer()
 	defer server.Close()
 
 	ws1, _ := mustConnectTo(t, server)
@@ -153,9 +145,7 @@ func TestWSClientClose(t *testing.T) {
 }
 
 func TestWSPingPong(t *testing.T) {
-	store := &StubWSClientStore{imClient: make(map[int][]Conn)}
-	authServer := &FakeAuthServer{}
-	server := httptest.NewServer(NewGatewayServer(store, authServer))
+	server, _ := newServer()
 	defer server.Close()
 
 	ws, _ := mustConnectTo(t, server)
@@ -173,6 +163,13 @@ func TestWSPingPong(t *testing.T) {
 
 	readMessageWithTimeout(ws, time.Millisecond*10)
 	assertEqual(t, pongHandlerWasCalled, true)
+}
+
+func newServer() (*httptest.Server, *StubWSClientStore) {
+	store := &StubWSClientStore{imClient: make(map[int][]Conn)}
+	authServer := &FakeAuthServer{}
+	server := httptest.NewServer(NewGatewayServer(store, authServer))
+	return server, store
 }
 
 func mustConnectTo(t *testing.T, server *httptest.Server) (*websocket.Conn, *http.Response) {
