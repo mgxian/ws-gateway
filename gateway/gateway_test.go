@@ -152,6 +152,29 @@ func TestWSClientClose(t *testing.T) {
 	assertWSClientCount(t, len(store.privateWSClientsForMember(123456)), 0)
 }
 
+func TestWSPingPong(t *testing.T) {
+	store := &StubWSClientStore{imClient: make(map[int][]Conn)}
+	authServer := &FakeAuthServer{}
+	server := httptest.NewServer(NewGatewayServer(store, authServer))
+	defer server.Close()
+
+	ws, _ := mustConnectTo(t, server)
+	mustSendAuthMessage(t, ws, -1, "")
+	mustReadMessageWithTimeout(t, ws, time.Millisecond*10)
+
+	pongHandlerWasCalled := false
+	ws.SetPongHandler(func(data string) error {
+		pongHandlerWasCalled = true
+		return nil
+	})
+
+	err := ws.WriteMessage(websocket.PingMessage, []byte("ping test"))
+	assertNoError(t, err)
+
+	readMessageWithTimeout(ws, time.Millisecond*10)
+	assertEqual(t, pongHandlerWasCalled, true)
+}
+
 func mustConnectTo(t *testing.T, server *httptest.Server) (*websocket.Conn, *http.Response) {
 	wsURLPrefix := "ws" + strings.TrimPrefix(server.URL, "http")
 	wsURL := wsURLPrefix + "/push"
@@ -224,6 +247,7 @@ func mustWriteMessage(t *testing.T, ws *websocket.Conn, msg string) {
 }
 
 func mustReadMessageWithTimeout(t *testing.T, ws *websocket.Conn, timeout time.Duration) string {
+	t.Helper()
 	msg, err := readMessageWithTimeout(ws, timeout)
 	if err != nil {
 		t.Fatalf("must get message but did not get one %v", err)
