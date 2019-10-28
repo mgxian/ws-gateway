@@ -165,8 +165,13 @@ func (g *Server) authMember(ws *websocket.Conn, auth AuthMessage) (memberID int)
 	return auth.MemberID
 }
 
+func (g *Server) clearWSReadDeadline(ws *websocket.Conn) {
+	ws.SetReadDeadline(time.Time{})
+}
+
 func (g *Server) waitForSubscribe(ws *websocket.Conn, memberID int) {
 	for {
+		g.clearWSReadDeadline(ws)
 		_, msg, err := ws.ReadMessage()
 		if err != nil {
 			g.wsClientStore.delete(memberID, newWSConn(ws))
