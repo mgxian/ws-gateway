@@ -56,27 +56,27 @@ func newAPPWSClients(name string) *appWSClients {
 
 // save store websocket connection of app
 func (app *appWSClients) save(memberID int, ws Conn) error {
-	mwsc, ok := app.memberClients[memberID]
+	mcs, ok := app.memberClients[memberID]
 	if !ok {
-		mwsc = newMemberWSClients(memberID)
-		app.memberClients[memberID] = mwsc
+		mcs = newMemberWSClients(memberID)
+		app.memberClients[memberID] = mcs
 	}
-	return mwsc.save(ws)
+	return mcs.save(ws)
 }
 
 func (app *appWSClients) delete(memberID int, ws Conn) {
-	if mwsc, ok := app.memberClients[memberID]; ok {
-		mwsc.delete(ws)
+	if mcs, ok := app.memberClients[memberID]; ok {
+		mcs.delete(ws)
 	}
 }
 
 // wsClientsForMember returns websocket connections of member
 func (app *appWSClients) wsClientsForMember(memberID int) []Conn {
-	memberClient, ok := app.memberClients[memberID]
+	mcs, ok := app.memberClients[memberID]
 	if !ok {
 		return nil
 	}
-	return memberClient.wsClients()
+	return mcs.wsClients()
 }
 
 // InMemeryWSClientStore store websocket connection
@@ -115,6 +115,9 @@ func (wcs *InMemeryWSClientStore) save(app string, memberID int, ws Conn) error 
 }
 
 func (wcs *InMemeryWSClientStore) delete(memberID int, ws Conn) {
+	wcs.Lock()
+	defer wcs.Unlock()
+
 	for app, ac := range wcs.appClients {
 		mid := memberID
 		if app != "im" {
@@ -124,7 +127,7 @@ func (wcs *InMemeryWSClientStore) delete(memberID int, ws Conn) {
 	}
 }
 
-// PublicWSClientsForApp return public websocket connections for app
+// publicWSClientsForApp return public websocket connections for app
 func (wcs *InMemeryWSClientStore) publicWSClientsForApp(app string) []Conn {
 	wcs.RLock()
 	defer wcs.RUnlock()
@@ -136,7 +139,7 @@ func (wcs *InMemeryWSClientStore) publicWSClientsForApp(app string) []Conn {
 	return appClient.wsClientsForMember(0)
 }
 
-// PrivateWSClientsForMember return private websocket connections for member
+// privateWSClientsForMember return private websocket connections for member
 func (wcs *InMemeryWSClientStore) privateWSClientsForMember(memberID int) []Conn {
 	wcs.RLock()
 	defer wcs.RUnlock()
