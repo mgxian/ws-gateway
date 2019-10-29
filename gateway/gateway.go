@@ -32,14 +32,14 @@ func subscribeForbiddenMessageForApp(app string) string {
 	return fmt.Sprintf(subscribeForbiddenMessageFormat, app)
 }
 
-// Conn connection interface
+// Conn websocket connection interface
 type Conn interface {
 	ReadMessage() (msg []byte, err error)
 	WriteMessage(msg []byte) (err error)
 	RemoteAddr() string
 }
 
-type wsClientStore interface {
+type wsStore interface {
 	save(app string, memberID int, ws Conn) error
 	delete(memberID int, ws Conn)
 	publicWSClientsForApp(app string) []Conn
@@ -74,12 +74,12 @@ type Server struct {
 	http.Handler
 
 	upgrader      websocket.Upgrader
-	wsClientStore wsClientStore
+	wsClientStore wsStore
 	authServer    AuthServer
 }
 
 // NewGatewayServer create a new gateway server
-func NewGatewayServer(store wsClientStore, authServer AuthServer) *Server {
+func NewGatewayServer(store wsStore, authServer AuthServer) *Server {
 	server := &Server{
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {

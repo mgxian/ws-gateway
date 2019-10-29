@@ -14,7 +14,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func TestWithRegister(t *testing.T) {
+func TestWithAuthentication(t *testing.T) {
 	tests := []struct {
 		valid           bool
 		description     string
@@ -53,7 +53,7 @@ func TestWithRegister(t *testing.T) {
 	}
 }
 
-func TestWithNoRegister(t *testing.T) {
+func TestWithNoAuthentication(t *testing.T) {
 	server, _ := newServer()
 	defer server.Close()
 
@@ -116,7 +116,7 @@ func TestPushMessage(t *testing.T) {
 	})
 }
 
-func TestWSClientClose(t *testing.T) {
+func TestWSClose(t *testing.T) {
 	server, store := newServer()
 	defer server.Close()
 
