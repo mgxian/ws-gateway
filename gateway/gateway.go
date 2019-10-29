@@ -92,50 +92,53 @@ func NewGatewayServer(store wsClientStore, authServer AuthServer) *Server {
 
 	router := http.NewServeMux()
 	router.HandleFunc("/push", server.websocket)
-	router.HandleFunc("/public", server.public)
-	router.HandleFunc("/im", server.im)
+	router.HandleFunc("/public", server.publicMessage)
+	router.HandleFunc("/im", server.imMessage)
 
 	server.Handler = router
 	return server
 }
 
-func (g *Server) public(w http.ResponseWriter, r *http.Request) {
+func (g *Server) bindPushMessage(r *http.Request) (*PushMessage, error) {
 	var pushMsg PushMessage
 	postData, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(postData, &pushMsg); err != nil {
+		return nil, err
+	}
+	return &pushMsg, nil
+}
+
+func (g *Server) publicMessage(w http.ResponseWriter, r *http.Request) {
+	pushMsg, err := g.bindPushMessage(r)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	if err := json.Unmarshal(postData, &pushMsg); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
+	msg, _ := json.Marshal(pushMsg)
 	conns := g.wsClientStore.publicWSClientsForApp(pushMsg.App)
 	for _, conn := range conns {
-		conn.WriteMessage(postData)
+		conn.WriteMessage(msg)
 	}
 
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (g *Server) im(w http.ResponseWriter, r *http.Request) {
-	var pushMsg PushMessage
-	postData, err := ioutil.ReadAll(r.Body)
+func (g *Server) imMessage(w http.ResponseWriter, r *http.Request) {
+	pushMsg, err := g.bindPushMessage(r)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	if err := json.Unmarshal(postData, &pushMsg); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
+	msg, _ := json.Marshal(pushMsg)
 	conns := g.wsClientStore.privateWSClientsForMember(pushMsg.MemberID)
 	for _, conn := range conns {
-		conn.WriteMessage(postData)
+		conn.WriteMessage(msg)
 	}
 	w.WriteHeader(http.StatusAccepted)
 }
