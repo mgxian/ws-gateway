@@ -74,7 +74,7 @@ func TestWithNoAuthentication(t *testing.T) {
 func TestPushMessage(t *testing.T) {
 	imMemberID := 123456
 	authServer := &FakeAuthServer{}
-	store := &StubWSClientStore{
+	store := &StubWSStore{
 		imClient: make(map[int][]Conn),
 	}
 	ws1 := newStubWSConn("1")
@@ -165,8 +165,8 @@ func TestWSPingPong(t *testing.T) {
 	assertEqual(t, pongHandlerWasCalled, true)
 }
 
-func newServer() (*httptest.Server, *StubWSClientStore) {
-	store := &StubWSClientStore{imClient: make(map[int][]Conn)}
+func newServer() (*httptest.Server, *StubWSStore) {
+	store := &StubWSStore{imClient: make(map[int][]Conn)}
 	authServer := &FakeAuthServer{}
 	server := httptest.NewServer(NewGatewayServer(store, authServer))
 	return server, store

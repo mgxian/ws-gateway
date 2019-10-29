@@ -1,6 +1,6 @@
 package gateway
 
-// StubWSConn implements Conn for testing purposes
+// StubWSConn implements Conn for testing purpose
 type StubWSConn struct {
 	addr   string
 	buffer [][]byte
@@ -35,8 +35,8 @@ func (s *StubWSConn) RemoteAddr() string {
 	return s.addr
 }
 
-// StubWSClientStore implements wsClientStore for testing purposes
-type StubWSClientStore struct {
+// StubWSStore implements wsStore for testing purpose
+type StubWSStore struct {
 	wsClients                          []Conn
 	imClient                           map[int][]Conn
 	matchClient                        []Conn
@@ -44,7 +44,7 @@ type StubWSClientStore struct {
 	privateWSClientsForMemberWasCalled bool
 }
 
-func (s *StubWSClientStore) save(app string, memberID int, ws Conn) error {
+func (s *StubWSStore) save(app string, memberID int, ws Conn) error {
 	s.wsClients = append(s.wsClients, ws)
 	if app == "im" && memberID > 0 {
 		s.imClient[memberID] = append(s.imClient[memberID], ws)
@@ -57,7 +57,7 @@ func (s *StubWSClientStore) save(app string, memberID int, ws Conn) error {
 	return nil
 }
 
-func (s *StubWSClientStore) delete(memberID int, ws Conn) {
+func (s *StubWSStore) delete(memberID int, ws Conn) {
 	if memberID != -1 {
 		delete(s.imClient, memberID)
 	}
@@ -78,7 +78,7 @@ func (s *StubWSClientStore) delete(memberID int, ws Conn) {
 	}
 }
 
-func (s *StubWSClientStore) publicWSClientsForApp(app string) []Conn {
+func (s *StubWSStore) publicWSClientsForApp(app string) []Conn {
 	s.publicWSClientsForAppWasCalled = true
 	if app == "match" {
 		return s.matchClient
@@ -86,12 +86,12 @@ func (s *StubWSClientStore) publicWSClientsForApp(app string) []Conn {
 	return nil
 }
 
-func (s *StubWSClientStore) privateWSClientsForMember(memberID int) []Conn {
+func (s *StubWSStore) privateWSClientsForMember(memberID int) []Conn {
 	s.privateWSClientsForMemberWasCalled = true
 	return s.imClient[memberID]
 }
 
-// FakeAuthServer implements AuthServer for testing purposes
+// FakeAuthServer implements AuthServer for testing purpose
 type FakeAuthServer struct{}
 
 // Auth check if member authed
