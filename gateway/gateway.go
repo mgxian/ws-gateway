@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"time"
 
@@ -12,13 +11,13 @@ import (
 )
 
 const (
-	missingAuthMessage              = `{code:400,message:"missing auth message"}`
-	unauthorizedMessage             = `{code:401,message:"unauthorized"}`
-	badSubscribeMessage             = `{code:400,message:"bad subscribe message"}`
-	helloStrangerMessage            = `{code:200,message:"hello stranger"}`
-	helloMemberMessageFormat        = `{code:200,message:"hello %d"}`
-	subscribeSuccessMessageFormat   = `{code:200,message:"subscribe %s success"}`
-	subscribeForbiddenMessageFormat = `{code:403,message:"subscribe %s forbidden"}`
+	missingAuthMessage              = `{"code":400,"message":"missing auth message"}`
+	unauthorizedMessage             = `{"code":401,"message":"unauthorized"}`
+	badSubscribeMessage             = `{"code":400,"message":"bad subscribe message"}`
+	helloStrangerMessage            = `{"code":200,"message":"hello stranger"}`
+	helloMemberMessageFormat        = `{"code":200,"message":"hello %d"}`
+	subscribeSuccessMessageFormat   = `{"code":200,"message":"subscribe %s success"}`
+	subscribeForbiddenMessageFormat = `{"code":403,"message":"subscribe %s forbidden"}`
 )
 
 func helloMessageForMember(memberID int) string {
@@ -72,6 +71,8 @@ type AuthServer interface {
 
 // Server websocket gateway server
 type Server struct {
+	http.Handler
+
 	upgrader      websocket.Upgrader
 	wsClientStore wsClientStore
 	authServer    AuthServer
@@ -79,7 +80,7 @@ type Server struct {
 
 // NewGatewayServer create a new gateway server
 func NewGatewayServer(store wsClientStore, authServer AuthServer) *Server {
-	return &Server{
+	server := &Server{
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
 				return true
@@ -88,15 +89,17 @@ func NewGatewayServer(store wsClientStore, authServer AuthServer) *Server {
 		wsClientStore: store,
 		authServer:    authServer,
 	}
+
+	router := http.NewServeMux()
+	router.HandleFunc("/push", server.websocket)
+	router.HandleFunc("/public", server.public)
+	router.HandleFunc("/im", server.im)
+
+	server.Handler = router
+	return server
 }
 
-func (g *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Println(r.URL.Path)
-	if r.URL.Path == "/push" {
-		g.websocket(w, r)
-		return
-	}
-
+func (g *Server) public(w http.ResponseWriter, r *http.Request) {
 	var pushMsg PushMessage
 	postData, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -109,20 +112,32 @@ func (g *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusAccepted)
-
-	if pushMsg.App == "im" {
-		conns := g.wsClientStore.privateWSClientsForMember(pushMsg.MemberID)
-		for _, conn := range conns {
-			conn.WriteMessage(postData)
-		}
-		return
-	}
-
 	conns := g.wsClientStore.publicWSClientsForApp(pushMsg.App)
 	for _, conn := range conns {
 		conn.WriteMessage(postData)
 	}
+
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func (g *Server) im(w http.ResponseWriter, r *http.Request) {
+	var pushMsg PushMessage
+	postData, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if err := json.Unmarshal(postData, &pushMsg); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	conns := g.wsClientStore.privateWSClientsForMember(pushMsg.MemberID)
+	for _, conn := range conns {
+		conn.WriteMessage(postData)
+	}
+	w.WriteHeader(http.StatusAccepted)
 }
 
 func (g *Server) websocket(w http.ResponseWriter, r *http.Request) {
