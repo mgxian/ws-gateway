@@ -20,6 +20,15 @@ const (
 	subscribeForbiddenMessageFormat = `{"code":403,"message":"subscribe %s forbidden"}`
 )
 
+const (
+	websocketURLPath = "/"
+	pushURLPath      = "/push"
+)
+
+const (
+	privateApp = "im"
+)
+
 func helloMessageForMember(memberID int) string {
 	return fmt.Sprintf(helloMemberMessageFormat, memberID)
 }
@@ -91,12 +100,28 @@ func NewGatewayServer(store wsStore, authServer AuthServer) *Server {
 	}
 
 	router := http.NewServeMux()
-	router.HandleFunc("/push", server.websocket)
-	router.HandleFunc("/public", server.publicMessage)
-	router.HandleFunc("/im", server.imMessage)
+	router.HandleFunc(websocketURLPath, server.websocket)
+	router.HandleFunc(pushURLPath, server.push)
 
 	server.Handler = router
 	return server
+}
+
+func (g *Server) push(w http.ResponseWriter, r *http.Request) {
+	pushMsg, err := g.bindPushMessage(r)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+
+	if pushMsg.App == privateApp {
+		g.imMessage(pushMsg)
+		return
+	}
+
+	g.publicMessage(pushMsg)
 }
 
 func (g *Server) bindPushMessage(r *http.Request) (*PushMessage, error) {
@@ -112,35 +137,20 @@ func (g *Server) bindPushMessage(r *http.Request) (*PushMessage, error) {
 	return &pushMsg, nil
 }
 
-func (g *Server) publicMessage(w http.ResponseWriter, r *http.Request) {
-	pushMsg, err := g.bindPushMessage(r)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
+func (g *Server) publicMessage(pushMsg *PushMessage) {
 	msg, _ := json.Marshal(pushMsg)
 	conns := g.wsClientStore.publicWSClientsForApp(pushMsg.App)
 	for _, conn := range conns {
 		conn.WriteMessage(msg)
 	}
-
-	w.WriteHeader(http.StatusAccepted)
 }
 
-func (g *Server) imMessage(w http.ResponseWriter, r *http.Request) {
-	pushMsg, err := g.bindPushMessage(r)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
+func (g *Server) imMessage(pushMsg *PushMessage) {
 	msg, _ := json.Marshal(pushMsg)
 	conns := g.wsClientStore.privateWSClientsForMember(pushMsg.MemberID)
 	for _, conn := range conns {
 		conn.WriteMessage(msg)
 	}
-	w.WriteHeader(http.StatusAccepted)
 }
 
 func (g *Server) websocket(w http.ResponseWriter, r *http.Request) {
@@ -209,7 +219,7 @@ func (g *Server) waitForSubscribe(ws *websocket.Conn, memberID int) {
 			continue
 		}
 
-		if memberID <= 0 && sub.App == "im" {
+		if memberID <= 0 && sub.App == privateApp {
 			ws.WriteMessage(websocket.TextMessage, []byte(subscribeForbiddenMessageForApp(sub.App)))
 			continue
 		}

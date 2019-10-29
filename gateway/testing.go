@@ -46,7 +46,7 @@ type StubWSStore struct {
 
 func (s *StubWSStore) save(app string, memberID int, ws Conn) error {
 	s.wsClients = append(s.wsClients, ws)
-	if app == "im" && memberID > 0 {
+	if app == privateApp && memberID > 0 {
 		s.imClient[memberID] = append(s.imClient[memberID], ws)
 	}
 

@@ -98,11 +98,11 @@ func (wcs *InMemeryWSClientStore) save(app string, memberID int, ws Conn) error 
 	wcs.Lock()
 	defer wcs.Unlock()
 
-	if app != "im" {
+	if app != privateApp {
 		memberID = 0
 	}
 
-	if app == "im" && memberID <= 0 {
+	if app == privateApp && memberID <= 0 {
 		return nil
 	}
 
@@ -120,7 +120,7 @@ func (wcs *InMemeryWSClientStore) delete(memberID int, ws Conn) {
 
 	for app, ac := range wcs.appClients {
 		mid := memberID
-		if app != "im" {
+		if app != privateApp {
 			mid = 0
 		}
 		ac.delete(mid, ws)
@@ -144,7 +144,7 @@ func (wcs *InMemeryWSClientStore) privateWSClientsForMember(memberID int) []Conn
 	wcs.RLock()
 	defer wcs.RUnlock()
 
-	app := "im"
+	app := privateApp
 	appClient, ok := wcs.appClients[app]
 	if !ok {
 		return nil

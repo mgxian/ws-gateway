@@ -24,8 +24,8 @@ func TestWithAuthentication(t *testing.T) {
 		subscribedApps  []string
 	}{
 		{false, "anonymous user connect", -1, "", helloStrangerMessage, []string{"match"}},
-		{true, "valid member connect", 123456, "654321", helloMessageForMember(123456), []string{"im", "match"}},
-		{false, "not valid member connect", 12345, "65432", unauthorizedMessage, []string{"im", "match"}},
+		{true, "valid member connect", 123456, "654321", helloMessageForMember(123456), []string{privateApp, "match"}},
+		{false, "not valid member connect", 12345, "65432", unauthorizedMessage, []string{privateApp, "match"}},
 	}
 
 	server, store := newServer()
@@ -81,13 +81,13 @@ func TestPushMessage(t *testing.T) {
 	ws2 := newStubWSConn("2")
 	store.save("match", -1, ws1)
 	store.save("match", -1, ws2)
-	store.save("im", imMemberID, ws2)
+	store.save(privateApp, imMemberID, ws2)
 	server := NewGatewayServer(store, authServer)
 	t.Run("push public message", func(t *testing.T) {
 		ws1.clear()
 		ws2.clear()
 		msgText := `{"hello":"world"}`
-		request := newPushMessagePostRequest("/public", "match", -1, msgText)
+		request := newPushMessagePostRequest("match", -1, msgText)
 		response := httptest.NewRecorder()
 		server.ServeHTTP(response, request)
 		assertEqual(t, store.publicWSClientsForAppWasCalled, true)
@@ -104,7 +104,7 @@ func TestPushMessage(t *testing.T) {
 		ws1.clear()
 		ws2.clear()
 		msgText := fmt.Sprintf(`{"hello":"%d"}`, imMemberID)
-		request := newPushMessagePostRequest("/im", "im", imMemberID, msgText)
+		request := newPushMessagePostRequest(privateApp, imMemberID, msgText)
 		response := httptest.NewRecorder()
 		server.ServeHTTP(response, request)
 		assertStatusCode(t, response.Code, http.StatusAccepted)
@@ -112,7 +112,7 @@ func TestPushMessage(t *testing.T) {
 
 		assertBufferLengthEqual(t, len(ws1.buffer), 0)
 		assertBufferLengthEqual(t, len(ws2.buffer), 1)
-		assertMessage(t, string(ws2.buffer[0]), string(pushMessageJSONFor("im", imMemberID, msgText)))
+		assertMessage(t, string(ws2.buffer[0]), string(pushMessageJSONFor(privateApp, imMemberID, msgText)))
 	})
 }
 
@@ -126,7 +126,7 @@ func TestWSClose(t *testing.T) {
 
 	ws2, _ := mustConnectTo(t, server)
 	mustSendAuthMessage(t, ws2, 123456, "654321")
-	mustSendSubscribeMessage(t, ws2, "im")
+	mustSendSubscribeMessage(t, ws2, privateApp)
 	mustSendSubscribeMessage(t, ws2, "match")
 
 	time.Sleep(time.Millisecond * 10)
@@ -174,7 +174,7 @@ func newServer() (*httptest.Server, *StubWSStore) {
 
 func mustConnectTo(t *testing.T, server *httptest.Server) (*websocket.Conn, *http.Response) {
 	wsURLPrefix := "ws" + strings.TrimPrefix(server.URL, "http")
-	wsURL := wsURLPrefix + "/push"
+	wsURL := wsURLPrefix + websocketURLPath
 	ws, response, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		t.Fatalf("connection failed %v", err)
@@ -268,7 +268,7 @@ func assertSubscribe(t *testing.T, ws *websocket.Conn, apps []string, isValid bo
 		mustSendSubscribeMessage(t, ws, app)
 		msg := mustReadMessageWithTimeout(t, ws, time.Millisecond*10)
 		want := subscribeSuccessMessageForApp(app)
-		if !isValid && app == "im" {
+		if !isValid && app == privateApp {
 			want = subscribeForbiddenMessageForApp(app)
 		}
 		assertMessage(t, msg, want)
@@ -282,9 +282,9 @@ func assertBufferLengthEqual(t *testing.T, got, want int) {
 	}
 }
 
-func newPushMessagePostRequest(url string, app string, memberID int, text string) *http.Request {
+func newPushMessagePostRequest(app string, memberID int, text string) *http.Request {
 	msgJSON := pushMessageJSONFor(app, memberID, text)
-	request := httptest.NewRequest(http.MethodPost, url, bytes.NewReader(msgJSON))
+	request := httptest.NewRequest(http.MethodPost, pushURLPath, bytes.NewReader(msgJSON))
 	return request
 }
 

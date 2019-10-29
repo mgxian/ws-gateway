@@ -22,7 +22,7 @@ func TestConnectToServerAndPushPublicMessage(t *testing.T) {
 	ws2 := mustConnectAndAuthAndSubscribe(t, server, memberID, token, app)
 
 	pushText := `{"hello":"world"}`
-	request := newPushMessagePostRequest("/public", app, memberID, pushText)
+	request := newPushMessagePostRequest(app, memberID, pushText)
 	response := httptest.NewRecorder()
 	gateway.ServeHTTP(response, request)
 
@@ -42,12 +42,12 @@ func TestConnectToServerAndPushPrivateMessage(t *testing.T) {
 	memberID1 := 123456
 	memberID2 := 12345
 	token := "654321"
-	app := "im"
+	app := privateApp
 	ws1 := mustConnectAndAuthAndSubscribe(t, server, memberID1, token, app)
 	ws2 := mustConnectAndAuthAndSubscribe(t, server, memberID2, token, app)
 
 	pushText := fmt.Sprintf(`{"hello":"%d"}`, memberID1)
-	request := newPushMessagePostRequest("/im", app, memberID1, pushText)
+	request := newPushMessagePostRequest(app, memberID1, pushText)
 	response := httptest.NewRecorder()
 	gateway.ServeHTTP(response, request)
 
