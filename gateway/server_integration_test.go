@@ -42,17 +42,16 @@ func TestConnectToServerAndPushPrivateMessage(t *testing.T) {
 	memberID1 := 123456
 	memberID2 := 12345
 	token := "654321"
-	app := privateApp
-	ws1 := mustConnectAndAuthAndSubscribe(t, server, memberID1, token, app)
-	ws2 := mustConnectAndAuthAndSubscribe(t, server, memberID2, token, app)
+	ws1 := mustConnectAndAuthAndSubscribe(t, server, memberID1, token, imApp)
+	ws2 := mustConnectAndAuthAndSubscribe(t, server, memberID2, token, imApp)
 
 	pushText := fmt.Sprintf(`{"hello":"%d"}`, memberID1)
-	request := newPushMessagePostRequest(app, memberID1, pushText)
+	request := newPushMessagePostRequest(imApp, memberID1, pushText)
 	response := httptest.NewRecorder()
 	gateway.ServeHTTP(response, request)
 
 	msg := mustReadMessageWithTimeout(t, ws1, time.Millisecond*10)
-	assertMessage(t, msg, string(pushMessageJSONFor(app, memberID1, pushText)))
+	assertMessage(t, msg, string(pushMessageJSONFor(imApp, memberID1, pushText)))
 
 	_, err := readMessageWithTimeout(ws2, time.Millisecond*10)
 	assertError(t, err)

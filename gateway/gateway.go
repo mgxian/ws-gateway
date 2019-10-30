@@ -25,9 +25,18 @@ const (
 	pushURLPath      = "/push"
 )
 
-const (
-	privateApp = "im"
+var (
+	privateApps = []string{"im"}
 )
+
+func isPrivateApp(app string) bool {
+	for _, pa := range privateApps {
+		if app == pa {
+			return true
+		}
+	}
+	return false
+}
 
 func helloMessageForMember(memberID int) string {
 	return fmt.Sprintf(helloMemberMessageFormat, memberID)
@@ -116,7 +125,7 @@ func (g *Server) push(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusAccepted)
 
-	if pushMsg.App == privateApp {
+	if isPrivateApp(pushMsg.App) {
 		g.imMessage(pushMsg)
 		return
 	}
@@ -219,7 +228,7 @@ func (g *Server) waitForSubscribe(ws *websocket.Conn, memberID int) {
 			continue
 		}
 
-		if memberID <= 0 && sub.App == privateApp {
+		if memberID <= 0 && isPrivateApp(sub.App) {
 			ws.WriteMessage(websocket.TextMessage, []byte(subscribeForbiddenMessageForApp(sub.App)))
 			continue
 		}

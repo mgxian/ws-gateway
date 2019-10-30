@@ -1,5 +1,9 @@
 package gateway
 
+const (
+	imApp = "im"
+)
+
 // StubWSConn implements Conn for testing purpose
 type StubWSConn struct {
 	addr   string
@@ -46,7 +50,7 @@ type StubWSStore struct {
 
 func (s *StubWSStore) save(app string, memberID int, ws Conn) error {
 	s.wsClients = append(s.wsClients, ws)
-	if app == privateApp && memberID > 0 {
+	if isPrivateApp(app) && memberID > 0 {
 		s.imClient[memberID] = append(s.imClient[memberID], ws)
 	}
 

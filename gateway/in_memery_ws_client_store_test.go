@@ -12,7 +12,7 @@ func TestWSClientStore(t *testing.T) {
 	ws2 := newStubWSConn("2")
 	store.save(matchApp, -1, ws1)
 	store.save(matchApp, -1, ws2)
-	store.save(privateApp, imMemberID, ws2)
+	store.save(imApp, imMemberID, ws2)
 
 	assertWSClientCount(t, len(store.publicWSClientsForApp(chatApp)), 0)
 	assertWSClientCount(t, len(store.publicWSClientsForApp(matchApp)), 2)
