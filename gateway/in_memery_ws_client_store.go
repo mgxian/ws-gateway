@@ -4,6 +4,10 @@ import (
 	"sync"
 )
 
+const (
+	publicAppMemberID = 0
+)
+
 type remoteAddr = string
 
 // memberWSClients store websocket connections of member
@@ -99,7 +103,7 @@ func (wcs *InMemeryWSClientStore) save(app string, memberID int, ws Conn) error 
 	defer wcs.Unlock()
 
 	if !isPrivateApp(app) {
-		memberID = 0
+		memberID = publicAppMemberID
 	}
 
 	if isPrivateApp(app) && !isValidMemberID(memberID) {
@@ -121,7 +125,7 @@ func (wcs *InMemeryWSClientStore) delete(memberID int, ws Conn) {
 	for app, ac := range wcs.appClients {
 		mid := memberID
 		if !isPrivateApp(app) {
-			mid = 0
+			mid = publicAppMemberID
 		}
 		ac.delete(mid, ws)
 	}
