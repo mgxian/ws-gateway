@@ -38,6 +38,13 @@ func isPrivateApp(app string) bool {
 	return false
 }
 
+func isValidMemberID(memberID int) bool {
+	if memberID > 0 {
+		return true
+	}
+	return false
+}
+
 func helloMessageForMember(memberID int) string {
 	return fmt.Sprintf(helloMemberMessageFormat, memberID)
 }
@@ -195,7 +202,7 @@ func (g *Server) readMessageWithTimeout(ws *websocket.Conn, timeout time.Duratio
 }
 
 func (g *Server) authMember(ws *websocket.Conn, auth AuthMessage) (memberID int) {
-	if auth.MemberID <= 0 {
+	if !isValidMemberID(auth.MemberID) {
 		ws.WriteMessage(websocket.TextMessage, []byte(helloStrangerMessage))
 		return -1
 	}
@@ -228,7 +235,7 @@ func (g *Server) waitForSubscribe(ws *websocket.Conn, memberID int) {
 			continue
 		}
 
-		if memberID <= 0 && isPrivateApp(sub.App) {
+		if !isValidMemberID(memberID) && isPrivateApp(sub.App) {
 			ws.WriteMessage(websocket.TextMessage, []byte(subscribeForbiddenMessageForApp(sub.App)))
 			continue
 		}

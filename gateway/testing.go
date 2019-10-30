@@ -50,7 +50,7 @@ type StubWSStore struct {
 
 func (s *StubWSStore) save(app string, memberID int, ws Conn) error {
 	s.wsClients = append(s.wsClients, ws)
-	if isPrivateApp(app) && memberID > 0 {
+	if isPrivateApp(app) && isValidMemberID(memberID) {
 		s.imClient[memberID] = append(s.imClient[memberID], ws)
 	}
 
@@ -62,7 +62,7 @@ func (s *StubWSStore) save(app string, memberID int, ws Conn) error {
 }
 
 func (s *StubWSStore) delete(memberID int, ws Conn) {
-	if memberID != -1 {
+	if isValidMemberID(memberID) {
 		delete(s.imClient, memberID)
 	}
 

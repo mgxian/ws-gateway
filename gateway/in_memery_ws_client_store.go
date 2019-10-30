@@ -102,7 +102,7 @@ func (wcs *InMemeryWSClientStore) save(app string, memberID int, ws Conn) error 
 		memberID = 0
 	}
 
-	if isPrivateApp(app) && memberID <= 0 {
+	if isPrivateApp(app) && !isValidMemberID(memberID) {
 		return nil
 	}
 
