@@ -10,8 +10,8 @@ func TestWSClientStore(t *testing.T) {
 	store := NewInMemeryWSClientStore()
 	ws1 := newStubWSConn("1")
 	ws2 := newStubWSConn("2")
-	store.save(matchApp, -1, ws1)
-	store.save(matchApp, -1, ws2)
+	store.save(matchApp, anonymousMemberID, ws1)
+	store.save(matchApp, anonymousMemberID, ws2)
 	store.save(imApp, imMemberID, ws2)
 
 	assertWSClientCount(t, len(store.publicWSClientsForApp(chatApp)), 0)
@@ -20,7 +20,7 @@ func TestWSClientStore(t *testing.T) {
 	assertWSClientCount(t, len(store.privateWSClientsForMember(notConnectedImMemberID)), 0)
 	assertWSClientCount(t, len(store.privateWSClientsForMember(imMemberID)), 1)
 
-	store.delete(-1, ws1)
+	store.delete(anonymousMemberID, ws1)
 	assertWSClientCount(t, len(store.publicWSClientsForApp(matchApp)), 1)
 	assertWSClientCount(t, len(store.privateWSClientsForMember(imMemberID)), 1)
 

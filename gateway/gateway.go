@@ -23,6 +23,8 @@ const (
 const (
 	websocketURLPath = "/"
 	pushURLPath      = "/push"
+
+	anonymousMemberID = -1
 )
 
 var (
@@ -204,12 +206,12 @@ func (g *Server) readMessageWithTimeout(ws *websocket.Conn, timeout time.Duratio
 func (g *Server) authMember(ws *websocket.Conn, auth AuthMessage) (memberID int) {
 	if !isValidMemberID(auth.MemberID) {
 		ws.WriteMessage(websocket.TextMessage, []byte(helloStrangerMessage))
-		return -1
+		return anonymousMemberID
 	}
 
 	if !g.authServer.Auth(auth.MemberID, auth.Token) {
 		ws.WriteMessage(websocket.TextMessage, []byte(unauthorizedMessage))
-		return -1
+		return anonymousMemberID
 	}
 
 	ws.WriteMessage(websocket.TextMessage, []byte(helloMessageForMember(auth.MemberID)))

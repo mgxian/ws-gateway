@@ -15,7 +15,7 @@ func TestConnectToServerAndPushPublicMessage(t *testing.T) {
 	gateway := NewGatewayServer(store, authServer)
 	server := httptest.NewServer(gateway)
 
-	memberID := -1
+	memberID := anonymousMemberID
 	app := "match"
 	token := ""
 	ws1 := mustConnectAndAuthAndSubscribe(t, server, memberID, token, app)

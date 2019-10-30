@@ -23,7 +23,7 @@ func TestWithAuthentication(t *testing.T) {
 		wantedAuthReply string
 		subscribedApps  []string
 	}{
-		{false, "anonymous user connect", -1, "", helloStrangerMessage, []string{"match"}},
+		{false, "anonymous user connect", anonymousMemberID, "", helloStrangerMessage, []string{"match"}},
 		{true, "valid member connect", 123456, "654321", helloMessageForMember(123456), []string{imApp, "match"}},
 		{false, "not valid member connect", 12345, "65432", unauthorizedMessage, []string{imApp, "match"}},
 	}
@@ -79,25 +79,25 @@ func TestPushMessage(t *testing.T) {
 	}
 	ws1 := newStubWSConn("1")
 	ws2 := newStubWSConn("2")
-	store.save("match", -1, ws1)
-	store.save("match", -1, ws2)
+	store.save("match", anonymousMemberID, ws1)
+	store.save("match", anonymousMemberID, ws2)
 	store.save(imApp, imMemberID, ws2)
 	server := NewGatewayServer(store, authServer)
 	t.Run("push public message", func(t *testing.T) {
 		ws1.clear()
 		ws2.clear()
 		msgText := `{"hello":"world"}`
-		request := newPushMessagePostRequest("match", -1, msgText)
+		request := newPushMessagePostRequest("match", anonymousMemberID, msgText)
 		response := httptest.NewRecorder()
 		server.ServeHTTP(response, request)
 		assertEqual(t, store.publicWSClientsForAppWasCalled, true)
 		assertStatusCode(t, response.Code, http.StatusAccepted)
 
 		assertBufferLengthEqual(t, len(ws1.buffer), 1)
-		assertMessage(t, string(ws1.buffer[0]), string(pushMessageJSONFor("match", -1, msgText)))
+		assertMessage(t, string(ws1.buffer[0]), string(pushMessageJSONFor("match", anonymousMemberID, msgText)))
 
 		assertBufferLengthEqual(t, len(ws2.buffer), 1)
-		assertMessage(t, string(ws2.buffer[0]), string(pushMessageJSONFor("match", -1, msgText)))
+		assertMessage(t, string(ws2.buffer[0]), string(pushMessageJSONFor("match", anonymousMemberID, msgText)))
 	})
 
 	t.Run("push im message", func(t *testing.T) {
@@ -121,7 +121,7 @@ func TestWSClose(t *testing.T) {
 	defer server.Close()
 
 	ws1, _ := mustConnectTo(t, server)
-	mustSendAuthMessage(t, ws1, -1, "")
+	mustSendAuthMessage(t, ws1, anonymousMemberID, "")
 	mustSendSubscribeMessage(t, ws1, "match")
 
 	ws2, _ := mustConnectTo(t, server)
@@ -149,7 +149,7 @@ func TestWSPingPong(t *testing.T) {
 	defer server.Close()
 
 	ws, _ := mustConnectTo(t, server)
-	mustSendAuthMessage(t, ws, -1, "")
+	mustSendAuthMessage(t, ws, anonymousMemberID, "")
 	mustReadMessageWithTimeout(t, ws, time.Millisecond*10)
 
 	pongHandlerWasCalled := false
