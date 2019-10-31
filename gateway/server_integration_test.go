@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/julienschmidt/httprouter"
 )
 
 func TestConnectToServerAndPushPublicMessage(t *testing.T) {
@@ -111,7 +112,10 @@ func startServer() {
 	store := NewInMemeryWSClientStore()
 	authServer := &FakeAuthServer{}
 	gateway := NewGatewayServer(store, authServer)
-	if err := http.ListenAndServe(":5000", gateway); err != nil {
+	httpRouter := httprouter.New()
+	httpRouter.GET(websocketURLPath, gateway.websocket)
+	httpRouter.POST(pushURLPath, gateway.push)
+	if err := http.ListenAndServe(":5000", httpRouter); err != nil {
 		log.Fatalf("could not listen on port 5000 %v", err)
 	}
 }
