@@ -171,7 +171,6 @@ func concurrentGetClients(t *testing.T, batchCount int, app string, wsChan chan 
 			wsURL := "ws://localhost:5000" + websocketURLPath
 			ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 			if err != nil {
-				// log.Printf("client websocket connect error: %v", err)
 				return
 			}
 
@@ -179,17 +178,18 @@ func concurrentGetClients(t *testing.T, batchCount int, app string, wsChan chan 
 			mustSendSubscribeMessage(t, ws, app)
 			_, err = readMessageWithTimeout(ws, time.Millisecond*100)
 			if err != nil {
+				ws.Close()
 				return
 			}
 			_, err = readMessageWithTimeout(ws, time.Millisecond*100)
 			if err != nil {
+				ws.Close()
 				return
 			}
 			m.Lock()
 			count++
 			m.Unlock()
 			wsChan <- ws
-			// log.Printf("client send %d ---> %s", count, ws.LocalAddr().String())
 		}()
 	}
 	wg.Wait()
