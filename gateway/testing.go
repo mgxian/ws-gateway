@@ -95,6 +95,17 @@ func (s *StubWSStore) privateWSClientsForMember(memberID int) []Conn {
 	return s.imClient[memberID]
 }
 
+func (s *StubWSStore) appsWSClientCount() []wsCount {
+	var result []wsCount
+	result = append(result, wsCount{"im", len(s.imClient)})
+	result = append(result, wsCount{"match", len(s.matchClient)})
+	return result
+}
+
+func (s *StubWSStore) apps() []string {
+	return []string{"match", "im"}
+}
+
 // FakeAuthServer implements AuthServer for testing purpose
 type FakeAuthServer struct{}
 

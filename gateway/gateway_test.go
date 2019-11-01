@@ -165,6 +165,27 @@ func TestWSPingPong(t *testing.T) {
 	assertEqual(t, pongHandlerWasCalled, true)
 }
 
+func TestWSClientCount(t *testing.T) {
+	imMemberID := 123456
+	store := &StubWSStore{
+		imClient: make(map[int][]Conn),
+	}
+	ws1 := newStubWSConn("1")
+	ws2 := newStubWSConn("2")
+	store.save("match", anonymousMemberID, ws1)
+	store.save("match", anonymousMemberID, ws2)
+	store.save(imApp, imMemberID, ws2)
+	server := NewStatServer(store)
+
+	t.Run("get websocket connections count", func(t *testing.T) {
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, "/stat", nil)
+		server.ServeHTTP(response, request)
+		assertEqual(t, response.Code, http.StatusOK)
+		assertEqual(t, response.Body.String(), "im 1\nmatch 2\n")
+	})
+}
+
 func newServer() (*httptest.Server, *StubWSStore) {
 	store := &StubWSStore{imClient: make(map[int][]Conn)}
 	authServer := &FakeAuthServer{}

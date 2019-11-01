@@ -96,6 +96,7 @@ type wsStore interface {
 	delete(memberID int, ws Conn)
 	publicWSClientsForApp(app string) []Conn
 	privateWSClientsForMember(memberID int) []Conn
+	apps() []string
 }
 
 // AuthMessage client auth message
@@ -270,5 +271,32 @@ func (g *Server) waitForSubscribe(ws *websocket.Conn, memberID int) {
 
 		ws.WriteMessage(websocket.TextMessage, []byte(subscribeSuccessMessageForApp(sub.App)))
 		g.wsClientStore.save(sub.App, memberID, newWSConn(ws))
+	}
+}
+
+type wsCount struct {
+	name  string
+	count int
+}
+
+type statStore interface {
+	appsWSClientCount() []wsCount
+}
+
+// StatServer store gateway stat
+type StatServer struct {
+	store statStore
+}
+
+// NewStatServer create a new statServer
+func NewStatServer(store statStore) *StatServer {
+	return &StatServer{
+		store: store,
+	}
+}
+
+func (s *StatServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	for _, wc := range s.store.appsWSClientCount() {
+		fmt.Fprintf(w, "%s %d\n", wc.name, wc.count)
 	}
 }

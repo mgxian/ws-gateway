@@ -155,3 +155,26 @@ func (wcs *InMemeryWSClientStore) privateWSClientsForMember(memberID int) []Conn
 	}
 	return appClient.wsClientsForMember(memberID)
 }
+
+func (wcs *InMemeryWSClientStore) appsWSClientCount() []wsCount {
+	var result []wsCount
+	for app := range wcs.appClients {
+		count := 0
+		if isPrivateApp(app) {
+			count = len(wcs.appClients[app].memberClients)
+		} else {
+			count = len(wcs.publicWSClientsForApp(app))
+		}
+		result = append(result, wsCount{app, count})
+	}
+
+	return result
+}
+
+func (wcs *InMemeryWSClientStore) apps() []string {
+	var result []string
+	for app := range wcs.appClients {
+		result = append(result, app)
+	}
+	return result
+}
