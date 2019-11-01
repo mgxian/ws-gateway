@@ -11,10 +11,10 @@ import (
 )
 
 const (
-	missingAuthMessage              = `{"code":400,"message":"missing auth message"}`
-	unauthorizedMessage             = `{"code":401,"message":"unauthorized"}`
-	badSubscribeMessage             = `{"code":400,"message":"bad subscribe message"}`
-	helloStrangerMessage            = `{"code":200,"message":"hello stranger"}`
+	missingAuthMessageString        = `{"code":400,"message":"missing auth message"}`
+	unauthorizedMessageString       = `{"code":401,"message":"unauthorized"}`
+	badSubscribeMessageString       = `{"code":400,"message":"bad subscribe message"}`
+	helloStrangerMessageString      = `{"code":200,"message":"hello stranger"}`
 	helloMemberMessageFormat        = `{"code":200,"message":"hello %d"}`
 	subscribeSuccessMessageFormat   = `{"code":200,"message":"subscribe %s success"}`
 	subscribeForbiddenMessageFormat = `{"code":403,"message":"subscribe %s forbidden"}`
@@ -47,16 +47,41 @@ func isValidMemberID(memberID int) bool {
 	return false
 }
 
+func missingAuthMessage() string {
+	return wrapGatewayResponseMessage(missingAuthMessageString)
+}
+
+func unauthorizedMessage() string {
+	return wrapGatewayResponseMessage(unauthorizedMessageString)
+}
+
+func badSubscribeMessage() string {
+	return wrapGatewayResponseMessage(badSubscribeMessageString)
+}
+
+func helloStrangerMessage() string {
+	return wrapGatewayResponseMessage(helloStrangerMessageString)
+}
+
 func helloMessageForMember(memberID int) string {
-	return fmt.Sprintf(helloMemberMessageFormat, memberID)
+	return wrapGatewayResponseMessage(fmt.Sprintf(helloMemberMessageFormat, memberID))
 }
 
 func subscribeSuccessMessageForApp(app string) string {
-	return fmt.Sprintf(subscribeSuccessMessageFormat, app)
+	return wrapGatewayResponseMessage(fmt.Sprintf(subscribeSuccessMessageFormat, app))
 }
 
 func subscribeForbiddenMessageForApp(app string) string {
-	return fmt.Sprintf(subscribeForbiddenMessageFormat, app)
+	return wrapGatewayResponseMessage(fmt.Sprintf(subscribeForbiddenMessageFormat, app))
+}
+
+func wrapGatewayResponseMessage(message string) string {
+	pushMsg := new(PushMessage)
+	pushMsg.App = "gateway"
+	pushMsg.MemberID = -1
+	pushMsg.Text = message
+	m, _ := json.Marshal(pushMsg)
+	return string(m)
 }
 
 // Conn websocket connection interface
@@ -129,6 +154,7 @@ func (g *Server) push(w http.ResponseWriter, r *http.Request) {
 	pushMsg, err := g.bindPushMessage(r)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "bind push message error %v\n", err)
 		return
 	}
 
@@ -180,7 +206,7 @@ func (g *Server) websocket(w http.ResponseWriter, r *http.Request) {
 
 	authMsg, err := g.getAuthMessage(ws)
 	if err != nil {
-		ws.WriteMessage(websocket.TextMessage, []byte(missingAuthMessage))
+		ws.WriteMessage(websocket.TextMessage, []byte(missingAuthMessage()))
 		return
 	}
 
@@ -205,12 +231,12 @@ func (g *Server) readMessageWithTimeout(ws *websocket.Conn, timeout time.Duratio
 
 func (g *Server) authMember(ws *websocket.Conn, auth AuthMessage) (memberID int) {
 	if !isValidMemberID(auth.MemberID) {
-		ws.WriteMessage(websocket.TextMessage, []byte(helloStrangerMessage))
+		ws.WriteMessage(websocket.TextMessage, []byte(helloStrangerMessage()))
 		return anonymousMemberID
 	}
 
 	if !g.authServer.Auth(auth.MemberID, auth.Token) {
-		ws.WriteMessage(websocket.TextMessage, []byte(unauthorizedMessage))
+		ws.WriteMessage(websocket.TextMessage, []byte(unauthorizedMessage()))
 		return anonymousMemberID
 	}
 
@@ -233,7 +259,7 @@ func (g *Server) waitForSubscribe(ws *websocket.Conn, memberID int) {
 
 		var sub SubscribeMessage
 		if err := json.Unmarshal(msg, &sub); err != nil {
-			ws.WriteMessage(websocket.TextMessage, []byte(badSubscribeMessage))
+			ws.WriteMessage(websocket.TextMessage, []byte(badSubscribeMessage()))
 			continue
 		}
 

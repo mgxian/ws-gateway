@@ -23,9 +23,9 @@ func TestWithAuthentication(t *testing.T) {
 		wantedAuthReply string
 		subscribedApps  []string
 	}{
-		{false, "anonymous user connect", anonymousMemberID, "", helloStrangerMessage, []string{"match"}},
+		{false, "anonymous user connect", anonymousMemberID, "", helloStrangerMessage(), []string{"match"}},
 		{true, "valid member connect", 123456, "654321", helloMessageForMember(123456), []string{imApp, "match"}},
-		{false, "not valid member connect", 12345, "65432", unauthorizedMessage, []string{imApp, "match"}},
+		{false, "not valid member connect", 12345, "65432", unauthorizedMessage(), []string{imApp, "match"}},
 	}
 
 	server, store := newServer()
@@ -65,7 +65,7 @@ func TestWithNoAuthentication(t *testing.T) {
 	mustWriteMessage(t, ws, "Hello I'm hacker")
 
 	msg := mustReadMessageWithTimeout(t, ws, time.Millisecond*10)
-	assertMessage(t, msg, missingAuthMessage)
+	assertMessage(t, msg, missingAuthMessage())
 
 	_, err := readMessageWithTimeout(ws, time.Millisecond*10)
 	assertError(t, err)
