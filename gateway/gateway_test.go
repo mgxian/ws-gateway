@@ -23,7 +23,7 @@ func TestWithAuthentication(t *testing.T) {
 		wantedAuthReply string
 		subscribedApps  []string
 	}{
-		{false, "anonymous user connect", anonymousMemberID, "", helloStrangerMessage(), []string{"match"}},
+		{false, "anonymous user connect", anonymousMemberID, "", helloStrangerMessage(), []string{"match", ""}},
 		{true, "valid member connect", 123456, "654321", helloMessageForMember(123456), []string{imApp, "match"}},
 		{false, "not valid member connect", 12345, "65432", unauthorizedMessage(), []string{imApp, "match"}},
 	}
@@ -288,7 +288,13 @@ func assertSubscribe(t *testing.T, ws *websocket.Conn, apps []string, isValid bo
 	for _, app := range apps {
 		mustSendSubscribeMessage(t, ws, app)
 		msg := mustReadMessageWithTimeout(t, ws, time.Millisecond*10)
-		want := subscribeSuccessMessageForApp(app)
+		want := ""
+		if app == "" {
+			want = badSubscribeMessage()
+		} else {
+			want = subscribeSuccessMessageForApp(app)
+		}
+
 		if !isValid && isPrivateApp(app) {
 			want = subscribeForbiddenMessageForApp(app)
 		}

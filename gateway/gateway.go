@@ -262,7 +262,7 @@ func (g *Server) waitForSubscribe(ws *websocket.Conn, memberID int) {
 		}
 
 		var sub SubscribeMessage
-		if err := json.Unmarshal(msg, &sub); err != nil {
+		if err := json.Unmarshal(msg, &sub); err != nil || sub.App == "" {
 			ws.WriteMessage(websocket.TextMessage, []byte(badSubscribeMessage()))
 			continue
 		}
