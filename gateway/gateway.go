@@ -173,11 +173,11 @@ func (g *Server) bindPushMessage(r *http.Request) (*PushMessage, error) {
 	var pushMsg PushMessage
 	postData, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read request body")
 	}
 
 	if err := json.Unmarshal(postData, &pushMsg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse request body")
 	}
 	return &pushMsg, nil
 }

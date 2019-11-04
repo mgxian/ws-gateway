@@ -114,6 +114,16 @@ func TestPushMessage(t *testing.T) {
 		assertBufferLengthEqual(t, len(ws2.buffer), 1)
 		assertMessage(t, string(ws2.buffer[0]), string(pushMessageJSONFor(imApp, imMemberID, msgText)))
 	})
+
+	t.Run("push request given not valid json", func(t *testing.T) {
+		ws1.clear()
+		ws2.clear()
+		msgText := `{hello:world}`
+		request := httptest.NewRequest(http.MethodPost, "/push", strings.NewReader(msgText))
+		response := httptest.NewRecorder()
+		server.ServeHTTP(response, request)
+		assertStatusCode(t, response.Code, http.StatusBadRequest)
+	})
 }
 
 func TestWSClose(t *testing.T) {
