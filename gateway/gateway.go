@@ -221,6 +221,9 @@ func (g *Server) getAuthMessage(ws *websocket.Conn) (authMsg AuthMessage, err er
 	if err != nil {
 		authMsg = AuthMessage{}
 	}
+	if authMsg.MemberID == 0 {
+		err = fmt.Errorf("member id is 0")
+	}
 	return
 }
 

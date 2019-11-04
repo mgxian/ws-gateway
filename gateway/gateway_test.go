@@ -62,7 +62,7 @@ func TestWithNoAuthentication(t *testing.T) {
 
 	assertStatusCode(t, response.StatusCode, http.StatusSwitchingProtocols)
 
-	mustWriteMessage(t, ws, "Hello I'm hacker")
+	mustWriteMessage(t, ws, "{}")
 
 	msg := mustReadMessageWithTimeout(t, ws, time.Millisecond*10)
 	assertMessage(t, msg, missingAuthMessage())
