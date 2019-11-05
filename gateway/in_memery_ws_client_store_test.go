@@ -27,4 +27,6 @@ func TestWSClientStore(t *testing.T) {
 	store.delete(imMemberID, ws2)
 	assertWSClientCount(t, len(store.publicWSClientsForApp(matchApp)), 0)
 	assertWSClientCount(t, len(store.privateWSClientsForMember(imMemberID)), 0)
+	_, ok := store.appClients[imApp].memberClients[imMemberID]
+	assertEqual(t, ok, false)
 }

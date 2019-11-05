@@ -71,6 +71,9 @@ func (app *appWSClients) save(memberID int, ws Conn) error {
 func (app *appWSClients) delete(memberID int, ws Conn) {
 	if mcs, ok := app.memberClients[memberID]; ok {
 		mcs.delete(ws)
+		if len(mcs.wsClients()) == 0 {
+			delete(app.memberClients, memberID)
+		}
 	}
 }
 
