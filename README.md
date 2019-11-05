@@ -1,5 +1,8 @@
 # ws-gateway
-ws-gateway 是一个 websocket 网关服务器
+`ws-gateway`是一个`websocket`网关服务器，客户端经过认证连接到`ws-gateway`，并订阅所需`APP`的数据，当`APP`需要推送数据时，
+只需要把数据通过`HTTP`请求发送给`ws-gateway`，`ws-gateway`会主动把消息推送到对应的客户端。数据流向图如下所示：
+
+![ws-gateway 数据流向图](ws-gateway.png)
 
 
 ### 启动 websocket 网关服务器
