@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"time"
 
@@ -155,7 +156,9 @@ func (g *Server) push(w http.ResponseWriter, r *http.Request) {
 	pushMsg, err := g.bindPushMessage(r)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "bind push message error %v\n", err)
+		errMessage := fmt.Sprintf("bind push message error %v\n", err)
+		log.Println(errMessage)
+		fmt.Fprint(w, errMessage)
 		return
 	}
 
@@ -201,12 +204,16 @@ func (g *Server) imMessage(pushMsg *PushMessage) {
 func (g *Server) websocket(w http.ResponseWriter, r *http.Request) {
 	ws, err := g.upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		errMessage := fmt.Sprintf("websocket upgrade failed: %v", err)
+		log.Println(errMessage)
 		return
 	}
 	defer ws.Close()
 
 	authMsg, err := g.getAuthMessage(ws)
 	if err != nil {
+		errMessage := fmt.Sprintf("get auth message failed: %v", err)
+		log.Println(errMessage)
 		ws.WriteMessage(websocket.TextMessage, []byte(missingAuthMessage()))
 		return
 	}
@@ -257,6 +264,8 @@ func (g *Server) waitForSubscribe(ws *websocket.Conn, memberID int) {
 		g.clearWSReadDeadline(ws)
 		_, msg, err := ws.ReadMessage()
 		if err != nil {
+			errMessage := fmt.Sprintf("read message failed: %v", err)
+			log.Println(errMessage)
 			g.wsClientStore.delete(memberID, newWSConn(ws))
 			return
 		}
