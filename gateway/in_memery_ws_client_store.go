@@ -88,15 +88,13 @@ func (app *appWSClients) wsClientsForMember(memberID int) []Conn {
 
 // InMemeryWSClientStore store websocket connection
 type InMemeryWSClientStore struct {
-	appClients map[string]*appWSClients
+	appClients sync.Map
 	sync.RWMutex
 }
 
 // NewInMemeryWSClientStore create a new WSClientStore
 func NewInMemeryWSClientStore() *InMemeryWSClientStore {
-	store := &InMemeryWSClientStore{
-		appClients: make(map[string]*appWSClients),
-	}
+	store := &InMemeryWSClientStore{}
 	return store
 }
 
@@ -113,11 +111,14 @@ func (wcs *InMemeryWSClientStore) save(app string, memberID int, ws Conn) error 
 		return nil
 	}
 
-	appWSClient, ok := wcs.appClients[app]
+	v, ok := wcs.appClients.Load(app)
 	if !ok {
-		appWSClient = newAPPWSClients(app)
-		wcs.appClients[app] = appWSClient
+		appWSClient := newAPPWSClients(app)
+		wcs.appClients.Store(app, appWSClient)
+		return appWSClient.save(memberID, ws)
 	}
+
+	appWSClient := v.(*appWSClients)
 	return appWSClient.save(memberID, ws)
 }
 
@@ -125,13 +126,17 @@ func (wcs *InMemeryWSClientStore) delete(memberID int, ws Conn) {
 	wcs.Lock()
 	defer wcs.Unlock()
 
-	for app, ac := range wcs.appClients {
+	wcs.appClients.Range(func(k, v interface{}) bool {
 		mid := memberID
-		if !isPrivateApp(app) {
+		if !isPrivateApp(k.(string)) {
 			mid = publicAppMemberID
 		}
-		ac.delete(mid, ws)
-	}
+		appWSClient, ok := v.(*appWSClients)
+		if ok {
+			appWSClient.delete(mid, ws)
+		}
+		return true
+	})
 }
 
 // publicWSClientsForApp return public websocket connections for app
@@ -139,10 +144,16 @@ func (wcs *InMemeryWSClientStore) publicWSClientsForApp(app string) []Conn {
 	wcs.RLock()
 	defer wcs.RUnlock()
 
-	appClient, ok := wcs.appClients[app]
+	v, ok := wcs.appClients.Load(app)
 	if !ok {
 		return nil
 	}
+
+	appClient, ok := v.(*appWSClients)
+	if !ok {
+		return nil
+	}
+
 	return appClient.wsClientsForMember(0)
 }
 
@@ -152,32 +163,41 @@ func (wcs *InMemeryWSClientStore) privateWSClientsForMember(memberID int) []Conn
 	defer wcs.RUnlock()
 
 	app := imApp
-	appClient, ok := wcs.appClients[app]
+	v, ok := wcs.appClients.Load(app)
 	if !ok {
 		return nil
 	}
+
+	appClient, ok := v.(*appWSClients)
+	if !ok {
+		return nil
+	}
+
 	return appClient.wsClientsForMember(memberID)
 }
 
 func (wcs *InMemeryWSClientStore) appsWSClientCount() []wsCount {
 	var result []wsCount
-	for app := range wcs.appClients {
+	wcs.appClients.Range(func(k, v interface{}) bool {
 		count := 0
+		app := k.(string)
 		if isPrivateApp(app) {
-			count = len(wcs.appClients[app].memberClients)
+			appClients, _ := wcs.appClients.Load(app)
+			count = len(appClients.(*appWSClients).memberClients)
 		} else {
 			count = len(wcs.publicWSClientsForApp(app))
 		}
 		result = append(result, wsCount{app, count})
-	}
-
+		return true
+	})
 	return result
 }
 
 func (wcs *InMemeryWSClientStore) apps() []string {
 	var result []string
-	for app := range wcs.appClients {
-		result = append(result, app)
-	}
+	wcs.appClients.Range(func(k, v interface{}) bool {
+		result = append(result, k.(string))
+		return true
+	})
 	return result
 }
