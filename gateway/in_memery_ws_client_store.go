@@ -12,6 +12,7 @@ type remoteAddr = string
 
 // memberWSClients store websocket connections of member
 type memberWSClients struct {
+	m        sync.RWMutex
 	memberID int
 	wsConns  map[remoteAddr]Conn
 }
@@ -26,17 +27,26 @@ func newMemberWSClients(memberID int) *memberWSClients {
 
 // save store websocket connection of member
 func (m *memberWSClients) save(ws Conn) error {
+	m.m.Lock()
+	defer m.m.Unlock()
+
 	addr := ws.RemoteAddr()
 	m.wsConns[addr] = ws
 	return nil
 }
 
 func (m *memberWSClients) delete(ws Conn) {
+	m.m.Lock()
+	defer m.m.Unlock()
+
 	delete(m.wsConns, ws.RemoteAddr())
 }
 
 // wsClients return websocket connections of member
 func (m *memberWSClients) wsClients() []Conn {
+	m.m.RLock()
+	defer m.m.RUnlock()
+
 	result := make([]Conn, 0)
 	for _, v := range m.wsConns {
 		result = append(result, v)
@@ -46,53 +56,45 @@ func (m *memberWSClients) wsClients() []Conn {
 
 // appWSClients store websocket connections of app
 type appWSClients struct {
-	m             sync.RWMutex
 	name          string
-	memberClients map[int]*memberWSClients
+	memberClients sync.Map
 }
 
 // newAPPWSClients create a new APPWSClients
 func newAPPWSClients(name string) *appWSClients {
 	return &appWSClients{
-		name:          name,
-		memberClients: make(map[int]*memberWSClients),
+		name: name,
 	}
 }
 
 // save store websocket connection of app
 func (app *appWSClients) save(memberID int, ws Conn) error {
-	app.m.Lock()
-	defer app.m.Unlock()
-
-	mcs, ok := app.memberClients[memberID]
+	v, ok := app.memberClients.Load(memberID)
 	if !ok {
-		mcs = newMemberWSClients(memberID)
-		app.memberClients[memberID] = mcs
+		mcs := newMemberWSClients(memberID)
+		app.memberClients.Store(memberID, mcs)
+		return mcs.save(ws)
 	}
-	return mcs.save(ws)
+	return v.(*memberWSClients).save(ws)
 }
 
 func (app *appWSClients) delete(memberID int, ws Conn) {
-	app.m.Lock()
-	defer app.m.Unlock()
-
-	if mcs, ok := app.memberClients[memberID]; ok {
+	if v, ok := app.memberClients.Load(memberID); ok {
+		mcs := v.(*memberWSClients)
 		mcs.delete(ws)
 		if len(mcs.wsClients()) == 0 {
-			delete(app.memberClients, memberID)
+			app.memberClients.Delete(memberID)
 		}
 	}
 }
 
 // wsClientsForMember returns websocket connections of member
 func (app *appWSClients) wsClientsForMember(memberID int) []Conn {
-	app.m.RLock()
-	defer app.m.RUnlock()
-
-	mcs, ok := app.memberClients[memberID]
+	v, ok := app.memberClients.Load(memberID)
 	if !ok {
 		return nil
 	}
+	mcs := v.(*memberWSClients)
 	return mcs.wsClients()
 }
 
@@ -179,8 +181,12 @@ func (wcs *InMemeryWSClientStore) appsWSClientCount() []wsCount {
 		count := 0
 		app := k.(string)
 		if isPrivateApp(app) {
-			appClients, _ := wcs.appClients.Load(app)
-			count = len(appClients.(*appWSClients).memberClients)
+			v, _ := wcs.appClients.Load(app)
+			appClients := v.(*appWSClients)
+			appClients.memberClients.Range(func(k, v interface{}) bool {
+				count++
+				return true
+			})
 		} else {
 			count = len(wcs.publicWSClientsForApp(app))
 		}
