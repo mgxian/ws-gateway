@@ -12,45 +12,35 @@ type remoteAddr = string
 
 // memberWSClients store websocket connections of member
 type memberWSClients struct {
-	m        sync.RWMutex
 	memberID int
-	wsConns  map[remoteAddr]Conn
+	wsConns  sync.Map
 }
 
 // newMemberWSClients create a new MemberWSClients
 func newMemberWSClients(memberID int) *memberWSClients {
 	return &memberWSClients{
 		memberID: memberID,
-		wsConns:  make(map[remoteAddr]Conn),
 	}
 }
 
 // save store websocket connection of member
 func (m *memberWSClients) save(ws Conn) error {
-	m.m.Lock()
-	defer m.m.Unlock()
-
 	addr := ws.RemoteAddr()
-	m.wsConns[addr] = ws
+	m.wsConns.Store(addr, ws)
 	return nil
 }
 
 func (m *memberWSClients) delete(ws Conn) {
-	m.m.Lock()
-	defer m.m.Unlock()
-
-	delete(m.wsConns, ws.RemoteAddr())
+	m.wsConns.Delete(ws.RemoteAddr())
 }
 
 // wsClients return websocket connections of member
 func (m *memberWSClients) wsClients() []Conn {
-	m.m.RLock()
-	defer m.m.RUnlock()
-
 	result := make([]Conn, 0)
-	for _, v := range m.wsConns {
-		result = append(result, v)
-	}
+	m.wsConns.Range(func(k, v interface{}) bool {
+		result = append(result, v.(Conn))
+		return true
+	})
 	return result
 }
 

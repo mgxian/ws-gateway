@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,10 +17,10 @@ func TestGatewayStress(t *testing.T) {
 	waitForServerReady()
 
 	app := "match"
-	batchCount := 200
-	clientCount := 2000
+	batchCount := 100
+	clientCount := 1000
 	wsChan := make(chan *websocket.Conn, 100)
-	go generateClients(t, app, clientCount, batchCount, wsChan)
+	go generateClients(t, app, uint64(clientCount), uint64(batchCount), wsChan)
 	wsClients := collectClients(wsChan)
 
 	msgText := `{"hello":"world"}`
@@ -70,8 +71,8 @@ func collectClients(wsChan chan *websocket.Conn) (wsClients []*websocket.Conn) {
 	return
 }
 
-func generateClients(t *testing.T, app string, count int, batchCount int, wsChan chan *websocket.Conn) {
-	currentCount := 0
+func generateClients(t *testing.T, app string, count uint64, batchCount uint64, wsChan chan *websocket.Conn) {
+	var currentCount uint64
 	generateClientsFailed := false
 	for {
 		lastCount := currentCount
@@ -80,7 +81,9 @@ func generateClients(t *testing.T, app string, count int, batchCount int, wsChan
 		if leftCount < batchCount {
 			batchCount = leftCount
 		}
-		currentCount += concurrentGetClients(t, batchCount, app, wsChan)
+		successCount, failedCount := concurrentGetClients(t, int(batchCount), app, wsChan)
+		log.Printf("websocket connection failed count: %d", failedCount)
+		currentCount += successCount
 		if currentCount >= count {
 			break
 		}
@@ -95,10 +98,10 @@ func generateClients(t *testing.T, app string, count int, batchCount int, wsChan
 	}
 }
 
-func concurrentGetClients(t *testing.T, batchCount int, app string, wsChan chan *websocket.Conn) int {
-	var m sync.Mutex
+func concurrentGetClients(t *testing.T, batchCount int, app string, wsChan chan *websocket.Conn) (uint64, uint64) {
 	var wg sync.WaitGroup
-	count := 0
+	var count uint64
+	var failedCount uint64
 	wg.Add(batchCount)
 	for i := 0; i < batchCount; i++ {
 		go func() {
@@ -106,6 +109,7 @@ func concurrentGetClients(t *testing.T, batchCount int, app string, wsChan chan 
 			wsURL := "ws://localhost:5000" + websocketURLPath
 			ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 			if err != nil {
+				atomic.AddUint64(&failedCount, 1)
 				return
 			}
 
@@ -114,21 +118,21 @@ func concurrentGetClients(t *testing.T, batchCount int, app string, wsChan chan 
 			_, err = readMessageWithTimeout(ws, time.Millisecond*100)
 			if err != nil {
 				ws.Close()
+				atomic.AddUint64(&failedCount, 1)
 				return
 			}
 			_, err = readMessageWithTimeout(ws, time.Millisecond*100)
 			if err != nil {
 				ws.Close()
+				atomic.AddUint64(&failedCount, 1)
 				return
 			}
-			m.Lock()
-			count++
-			m.Unlock()
+			atomic.AddUint64(&count, 1)
 			wsChan <- ws
 		}()
 	}
 	wg.Wait()
-	return count
+	return count, failedCount
 }
 
 func pushMessage(url string, app string, memberID int, text string) (*http.Response, error) {
