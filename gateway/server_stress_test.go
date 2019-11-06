@@ -106,7 +106,7 @@ func concurrentGetClients(t *testing.T, batchCount int, app string, wsChan chan 
 	for i := 0; i < batchCount; i++ {
 		go func() {
 			defer wg.Done()
-			wsURL := "ws://localhost:5000" + websocketURLPath
+			wsURL := "ws://172.16.11.201:5000" + websocketURLPath
 			ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 			if err != nil {
 				atomic.AddUint64(&failedCount, 1)

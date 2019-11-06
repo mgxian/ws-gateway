@@ -90,6 +90,7 @@ func TestPushMessage(t *testing.T) {
 		request := newPushMessagePostRequest("match", anonymousMemberID, msgText)
 		response := httptest.NewRecorder()
 		server.ServeHTTP(response, request)
+		time.Sleep(time.Millisecond * 10)
 		assertEqual(t, store.publicWSClientsForAppWasCalled, true)
 		assertStatusCode(t, response.Code, http.StatusAccepted)
 
@@ -107,6 +108,7 @@ func TestPushMessage(t *testing.T) {
 		request := newPushMessagePostRequest(imApp, imMemberID, msgText)
 		response := httptest.NewRecorder()
 		server.ServeHTTP(response, request)
+		time.Sleep(time.Millisecond * 10)
 		assertStatusCode(t, response.Code, http.StatusAccepted)
 		assertEqual(t, store.privateWSClientsForMemberWasCalled, true)
 

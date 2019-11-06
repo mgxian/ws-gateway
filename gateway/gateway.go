@@ -130,6 +130,7 @@ type Server struct {
 	upgrader      websocket.Upgrader
 	wsClientStore wsStore
 	authServer    AuthServer
+	pushChan      chan *PushMessage
 }
 
 // NewGatewayServer create a new gateway server
@@ -142,7 +143,10 @@ func NewGatewayServer(store wsStore, authServer AuthServer) *Server {
 		},
 		wsClientStore: store,
 		authServer:    authServer,
+		pushChan:      make(chan *PushMessage, 1000),
 	}
+
+	go server.pushLoop()
 
 	router := http.NewServeMux()
 	router.HandleFunc(websocketURLPath, server.websocket)
@@ -164,12 +168,17 @@ func (g *Server) push(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusAccepted)
 
-	if isPrivateApp(pushMsg.App) {
-		g.imMessage(pushMsg)
-		return
-	}
+	g.pushChan <- pushMsg
+}
 
-	g.publicMessage(pushMsg)
+func (g *Server) pushLoop() {
+	for msg := range g.pushChan {
+		if isPrivateApp(msg.App) {
+			g.imMessage(msg)
+			continue
+		}
+		g.publicMessage(msg)
+	}
 }
 
 func (g *Server) bindPushMessage(r *http.Request) (*PushMessage, error) {
