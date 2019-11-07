@@ -12,6 +12,16 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const (
+	testWebSocketURL = "ws://localhost:5000"
+	testPushHost     = "http://localhost:5000"
+)
+
+// const (
+// 	testWebSocketURL = "ws://172.16.11.201:5000"
+// 	testPushHost     = "http://172.16.11.201:5000"
+// )
+
 func TestGatewayStress(t *testing.T) {
 	go startServer()
 	waitForServerReady()
@@ -24,7 +34,7 @@ func TestGatewayStress(t *testing.T) {
 	wsClients := collectClients(wsChan)
 
 	msgText := `{"hello":"world"}`
-	response, err := pushMessage("http://localhost:5000"+pushURLPath, app, anonymousMemberID, msgText)
+	response, err := pushMessage(testPushHost+pushURLPath, app, anonymousMemberID, msgText)
 	if err != nil {
 		t.Fatalf("post push message error: %v", err)
 	}
@@ -106,7 +116,7 @@ func concurrentGetClients(t *testing.T, batchCount int, app string, wsChan chan 
 	for i := 0; i < batchCount; i++ {
 		go func() {
 			defer wg.Done()
-			wsURL := "ws://172.16.11.201:5000" + websocketURLPath
+			wsURL := testWebSocketURL + websocketURLPath
 			ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 			if err != nil {
 				atomic.AddUint64(&failedCount, 1)

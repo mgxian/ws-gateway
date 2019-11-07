@@ -2,6 +2,8 @@ package gateway
 
 import (
 	"sync"
+
+	cmap "github.com/orcaman/concurrent-map"
 )
 
 const (
@@ -13,33 +15,33 @@ type remoteAddr = string
 // memberWSClients store websocket connections of member
 type memberWSClients struct {
 	memberID int
-	wsConns  sync.Map
+	wsConns  cmap.ConcurrentMap
 }
 
 // newMemberWSClients create a new MemberWSClients
 func newMemberWSClients(memberID int) *memberWSClients {
 	return &memberWSClients{
 		memberID: memberID,
+		wsConns:  cmap.New(),
 	}
 }
 
 // save store websocket connection of member
 func (m *memberWSClients) save(ws Conn) error {
 	addr := ws.RemoteAddr()
-	m.wsConns.Store(addr, ws)
+	m.wsConns.Set(addr, ws)
 	return nil
 }
 
 func (m *memberWSClients) delete(ws Conn) {
-	m.wsConns.Delete(ws.RemoteAddr())
+	m.wsConns.Remove(ws.RemoteAddr())
 }
 
 // wsClients return websocket connections of member
 func (m *memberWSClients) wsClients() []Conn {
 	result := make([]Conn, 0)
-	m.wsConns.Range(func(k, v interface{}) bool {
+	m.wsConns.IterCb(func(k string, v interface{}) {
 		result = append(result, v.(Conn))
-		return true
 	})
 	return result
 }
